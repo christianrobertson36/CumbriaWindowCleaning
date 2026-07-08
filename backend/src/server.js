@@ -85,6 +85,10 @@ function money(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function cleanText(value) {
+  return String(value || '').trim();
+}
+
 app.get('/health', (_req, res) => {
   res.json({ ok: true, app: 'Cumbria Window Cleaning API', version: 'v1' });
 });
@@ -133,6 +137,7 @@ app.get('/admin/customers', auth, async (_req, res) => {
 
 app.post('/admin/customers', auth, async (req, res) => {
   const c = req.body || {};
+  if (!cleanText(c.name)) return res.status(400).json({ ok: false, error: 'Customer name is required' });
   const result = await pool.query(
     `INSERT INTO customers (name,address,postcode,email,phone,access_notes,notes,clean_price,frequency,amount_owed,status)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
@@ -149,6 +154,18 @@ app.patch('/admin/customers/:id', auth, async (req, res) => {
     [c.name, c.address || '', c.postcode || '', c.email || '', c.phone || '', c.access_notes || '', c.notes || '', money(c.clean_price), c.frequency || 'Monthly', money(c.amount_owed), c.status || 'Active', req.params.id]
   );
   res.json({ ok: true, customer: result.rows[0] });
+});
+
+app.get('/admin/contacts', auth, async (_req, res) => {
+  const result = await pool.query(`
+    SELECT 'customer' AS source, id, name, address, postcode, email, phone, frequency, status, amount_owed::float AS amount_owed, notes, created_at
+    FROM customers
+    UNION ALL
+    SELECT 'lead' AS source, id, name, address, postcode, email, phone, frequency, status, 0::float AS amount_owed, message AS notes, created_at
+    FROM leads
+    ORDER BY name ASC, created_at DESC
+  `);
+  res.json({ ok: true, contacts: result.rows });
 });
 
 app.get('/admin/jobs', auth, async (_req, res) => {
@@ -195,6 +212,34 @@ app.get('/admin/leads', auth, async (_req, res) => {
 app.patch('/admin/leads/:id', auth, async (req, res) => {
   const result = await pool.query('UPDATE leads SET status=$1, updated_at=now() WHERE id=$2 RETURNING *', [req.body.status || 'New', req.params.id]);
   res.json({ ok: true, lead: result.rows[0] });
+});
+
+app.post('/admin/leads/:id/convert', auth, async (req, res) => {
+  const leadResult = await pool.query('SELECT * FROM leads WHERE id=$1', [req.params.id]);
+  const lead = leadResult.rows[0];
+  if (!lead) return res.status(404).json({ ok: false, error: 'Lead not found' });
+
+  const existing = await pool.query(
+    `SELECT * FROM customers
+     WHERE ($1 <> '' AND lower(email) = lower($1)) OR ($2 <> '' AND regexp_replace(phone, '\\s+', '', 'g') = regexp_replace($2, '\\s+', '', 'g'))
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [lead.email || '', lead.phone || '']
+  );
+
+  if (existing.rows[0]) {
+    await pool.query('UPDATE leads SET status=$1, updated_at=now() WHERE id=$2', ['Existing customer', lead.id]);
+    return res.json({ ok: true, existing: true, customer: existing.rows[0] });
+  }
+
+  const notes = [lead.property_type, lead.message].filter(Boolean).join(' - ');
+  const customer = await pool.query(
+    `INSERT INTO customers (name,address,postcode,email,phone,notes,frequency,status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    [lead.name, lead.address || '', lead.postcode || '', lead.email || '', lead.phone || '', notes, lead.frequency || 'Monthly', 'Active']
+  );
+  await pool.query('UPDATE leads SET status=$1, updated_at=now() WHERE id=$2', ['Won', lead.id]);
+  res.status(201).json({ ok: true, existing: false, customer: customer.rows[0] });
 });
 
 initDb().then(() => {
