@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="260" viewBox="0 0 720 260" role="img" aria-label="Cumbria Window Cleaning">
+  <rect width="720" height="260" rx="34" fill="#f6fbff"/>
+  <path d="M175 68c75-42 193-40 340 2l-29 88c-126-36-222-32-289 10z" fill="#2c9fde"/>
+  <g fill="#ffffff" opacity=".9">
+    <circle cx="240" cy="82" r="8"/><circle cx="310" cy="63" r="5"/><circle cx="390" cy="72" r="6"/><path d="M349 112c-19-5-30-16-35-33 13 11 26 17 43 18z"/>
+  </g>
+  <g stroke="#243b4a" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M91 112h79v92H91z"/>
+    <path d="M91 143h79"/><path d="M131 112v92"/>
+    <path d="M95 107c-2-23 15-39 36-38 14-28 60-23 65 11 22 3 36 20 34 41" stroke="#2c9fde"/>
+    <path d="M164 73l-43 43"/>
+  </g>
+  <text x="248" y="116" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800" fill="#ffffff" font-style="italic">Cumbria</text>
+  <text x="210" y="169" font-family="Arial Black, Arial, sans-serif" font-size="56" font-weight="900" fill="#233746">Window Cleaning</text>
+  <text x="255" y="201" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="900" fill="#1787c9">COMMERCIAL &amp; DOMESTIC</text>
+</svg>
