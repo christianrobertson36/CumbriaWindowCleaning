@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cumbria_window_cleaning}
+      POSTGRES_USER: ${POSTGRES_USER:-cumbria}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-db-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cumbria} -d ${POSTGRES_DB:-cumbria_window_cleaning}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    image: ghcr.io/christianrobertson36/cumbria-window-cleaning-api:v1
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5055
+      DATABASE_URL: ${DATABASE_URL:-postgres://cumbria:change-db-password@db:5432/cumbria_window_cleaning}
+      JWT_SECRET: ${JWT_SECRET:-change-this-long-random-secret}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cumbriawindowcleaning.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-now}
+    ports:
+      - "5055:5055"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5055}
+    image: ghcr.io/christianrobertson36/cumbria-window-cleaning-web:v1
+    restart: unless-stopped
+    ports:
+      - "3095:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
