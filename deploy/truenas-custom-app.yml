@@ -1,0 +1,42 @@
+services:
+  cwc-db:
+    image: postgres:16
+    container_name: cwc-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cwc
+      POSTGRES_USER: cwc
+      POSTGRES_PASSWORD: CHANGE_ME_DB_PASSWORD
+    volumes:
+      - /mnt/APP_POOL/CWC/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cwc -d cwc"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  cwc-api:
+    image: ghcr.io/christianrobertson36/cumbria-window-cleaning-api:v1
+    container_name: cwc-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5055
+      DATABASE_URL: postgres://cwc:CHANGE_ME_DB_PASSWORD@cwc-db:5432/cwc
+      JWT_SECRET: CHANGE_ME_LONG_RANDOM_SECRET
+      ADMIN_EMAIL: admin@cumbriawindowcleaning.local
+      ADMIN_PASSWORD: CHANGE_ME_ADMIN_PASSWORD
+    ports:
+      - "5055:5055"
+    depends_on:
+      cwc-db:
+        condition: service_healthy
+
+  cwc-web:
+    image: ghcr.io/christianrobertson36/cumbria-window-cleaning-web:v1
+    container_name: cwc-web
+    restart: unless-stopped
+    ports:
+      - "3095:80"
+    depends_on:
+      - cwc-api
