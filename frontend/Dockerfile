@@ -5,6 +5,7 @@ ENV VITE_API_URL=$VITE_API_URL
 COPY package*.json ./
 RUN npm install
 COPY index.html ./
+COPY public ./public
 COPY src ./src
 RUN npm run build
 
