@@ -148,11 +148,13 @@ app.post('/admin/customers', auth, async (req, res) => {
 
 app.patch('/admin/customers/:id', auth, async (req, res) => {
   const c = req.body || {};
+  if (!cleanText(c.name)) return res.status(400).json({ ok: false, error: 'Customer name is required' });
   const result = await pool.query(
     `UPDATE customers SET name=$1,address=$2,postcode=$3,email=$4,phone=$5,access_notes=$6,notes=$7,clean_price=$8,frequency=$9,amount_owed=$10,status=$11,updated_at=now()
      WHERE id=$12 RETURNING *`,
     [c.name, c.address || '', c.postcode || '', c.email || '', c.phone || '', c.access_notes || '', c.notes || '', money(c.clean_price), c.frequency || 'Monthly', money(c.amount_owed), c.status || 'Active', req.params.id]
   );
+  if (!result.rows[0]) return res.status(404).json({ ok: false, error: 'Customer not found' });
   res.json({ ok: true, customer: result.rows[0] });
 });
 
@@ -211,6 +213,7 @@ app.get('/admin/leads', auth, async (_req, res) => {
 
 app.patch('/admin/leads/:id', auth, async (req, res) => {
   const result = await pool.query('UPDATE leads SET status=$1, updated_at=now() WHERE id=$2 RETURNING *', [req.body.status || 'New', req.params.id]);
+  if (!result.rows[0]) return res.status(404).json({ ok: false, error: 'Lead not found' });
   res.json({ ok: true, lead: result.rows[0] });
 });
 
@@ -229,7 +232,7 @@ app.post('/admin/leads/:id/convert', auth, async (req, res) => {
 
   if (existing.rows[0]) {
     await pool.query('UPDATE leads SET status=$1, updated_at=now() WHERE id=$2', ['Existing customer', lead.id]);
-    return res.json({ ok: true, existing: true, customer: existing.rows[0] });
+    return res.json({ ok: true, existing: true, customer: existing.rows[0], message: 'Lead matched existing customer/contact. No duplicate created.' });
   }
 
   const notes = [lead.property_type, lead.message].filter(Boolean).join(' - ');
@@ -239,7 +242,7 @@ app.post('/admin/leads/:id/convert', auth, async (req, res) => {
     [lead.name, lead.address || '', lead.postcode || '', lead.email || '', lead.phone || '', notes, lead.frequency || 'Monthly', 'Active']
   );
   await pool.query('UPDATE leads SET status=$1, updated_at=now() WHERE id=$2', ['Won', lead.id]);
-  res.status(201).json({ ok: true, existing: false, customer: customer.rows[0] });
+  res.status(201).json({ ok: true, existing: false, customer: customer.rows[0], message: 'Lead converted into a customer/contact.' });
 });
 
 initDb().then(() => {

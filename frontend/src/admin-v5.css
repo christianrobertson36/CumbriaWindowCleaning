@@ -1,0 +1,31 @@
+.adminSearch { display: flex; gap: 10px; align-items: center; margin-top: 18px; }
+.adminSearch input { flex: 1; font-size: 16px; }
+.adminSearch button { white-space: nowrap; }
+.filterBar { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.filterBar button { box-shadow: none; }
+.filterBar button.active { background: #1d8bc9; }
+.listHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.listHeading h3 { margin: 0; }
+.listHeading span { color: #617a8d; font-weight: 800; }
+.customerEditor { padding: 18px; border: 2px solid #9ed7f3; border-radius: 20px; background: #f7fcff; }
+.editorActions, .rowActions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.leadRow { grid-template-columns: 1fr auto; }
+.leadRow .rowActions { grid-column: 1 / -1; margin-top: 0; }
+.dangerButton { background: #fff0f0; color: #a32929; box-shadow: none; }
+.statusBadge, .typeBadge { display: inline-block !important; width: max-content; padding: 5px 10px; border-radius: 999px; background: #eef4f7; color: #456477 !important; font-size: 13px; font-weight: 900; }
+.typeBadge { background: #eaf8ff; color: #1d6fa6 !important; }
+.status-active, .status-won { background: #e5f8ed; color: #147548 !important; }
+.status-new { background: #fff6d8; color: #856404 !important; }
+.status-lost-not-interested, .status-inactive { background: #fff0f0; color: #a32929 !important; }
+.emptyState { padding: 24px; text-align: center; color: #617a8d; background: #f8fcff; border-radius: 18px; }
+
+@media (max-width: 900px) {
+  .leadRow { grid-template-columns: 1fr; }
+  .leadRow .rowActions { grid-column: auto; }
+}
+
+@media (max-width: 560px) {
+  .adminPanel { padding: 20px; }
+  .adminSearch { align-items: stretch; flex-direction: column; }
+  .rowActions button, .editorActions button { width: 100%; }
+}
