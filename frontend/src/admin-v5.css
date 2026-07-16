@@ -18,6 +18,9 @@
 .status-new { background: #fff6d8; color: #856404 !important; }
 .status-lost-not-interested, .status-inactive { background: #fff0f0; color: #a32929 !important; }
 .emptyState { padding: 24px; text-align: center; color: #617a8d; background: #f8fcff; border-radius: 18px; }
+.adminPage { min-height: calc(100vh - 120px); padding: 28px 3vw 50px; overflow: visible; background: linear-gradient(135deg, #eef9ff, #f8fcff); }
+.adminPage .adminPanel { width: 100%; max-width: 1800px; min-height: calc(100vh - 180px); margin: 0 auto; }
+.adminTopbar { position: static; }
 
 @media (max-width: 900px) {
   .leadRow { grid-template-columns: 1fr; }

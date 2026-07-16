@@ -8,6 +8,7 @@ const blankCustomer = { name: '', address: '', postcode: '', email: '', phone: '
 const today = new Date().toISOString().slice(0, 10);
 
 function App() {
+  const isAdminPage = window.location.pathname.replace(/\/+$/, '') === '/admin';
   const [lead, setLead] = useState({ name: '', phone: '', email: '', address: '', postcode: '', property_type: '', frequency: 'Monthly', message: '' });
   const [leadSent, setLeadSent] = useState(false);
   const [token, setToken] = useState(localStorage.getItem('cwc_token') || '');
@@ -145,12 +146,13 @@ function App() {
   }
 
   return <>
-    <header className="topbar">
+    <header className={`topbar ${isAdminPage ? 'adminTopbar' : ''}`}>
       <div className="brandMark"><span className="bucket">⌂</span><div><strong>Cumbria</strong><span>Window Cleaning</span></div></div>
-      <nav><a href="#quote">Get a quote</a><a href="#services">Services</a><a href="#admin">Admin</a></nav>
+      {isAdminPage ? <nav><a href="/">View public website</a></nav> : <nav><a href="#quote">Get a quote</a><a href="#services">Services</a></nav>}
     </header>
 
-    <main>
+    <main className={isAdminPage ? 'adminPage' : ''}>
+      {!isAdminPage && <>
       <section className="hero">
         <div>
           <p className="eyebrow">Commercial & domestic</p>
@@ -183,8 +185,9 @@ function App() {
           <button className="button wide">Send request</button>
         </form>
       </section>
+      </>}
 
-      <section id="admin" className="section adminPanel">
+      {isAdminPage && <section id="admin" className="section adminPanel">
         <div className="adminHeader"><div><p className="eyebrow">Private planner</p><h2>Admin dashboard</h2></div>{token && <button className="small" onClick={() => { localStorage.removeItem('cwc_token'); setToken(''); }}>Logout</button>}</div>
         {error && <p className="error">{error}</p>}
         {notice && <p className="success">{notice}</p>}
@@ -205,7 +208,7 @@ function App() {
           {tab === 'leads' && <LeadList leads={leads} updateLeadStatus={updateLeadStatus} convertLead={convertLead} leadMatch={leadMatch} />}
           </>}
         </>}
-      </section>
+      </section>}
     </main>
   </>;
 }
