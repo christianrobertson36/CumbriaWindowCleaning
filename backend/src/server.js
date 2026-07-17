@@ -78,6 +78,7 @@ async function initDb() {
     ALTER TABLE jobs ADD COLUMN IF NOT EXISTS charged_at TIMESTAMPTZ;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS follow_up_date DATE;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS quoted_amount NUMERIC(10,2) NOT NULL DEFAULT 0;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS service TEXT NOT NULL DEFAULT 'Window cleaning';
   `);
 }
 
@@ -131,9 +132,9 @@ app.post('/leads', async (req, res) => {
   const lead = req.body || {};
   if (!lead.name || !lead.phone) return res.status(400).json({ ok: false, error: 'Name and phone are required' });
   const result = await pool.query(
-    `INSERT INTO leads (name,address,postcode,email,phone,property_type,frequency,message)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-    [lead.name, lead.address || '', lead.postcode || '', lead.email || '', lead.phone || '', lead.property_type || '', lead.frequency || '', lead.message || '']
+    `INSERT INTO leads (name,address,postcode,email,phone,property_type,frequency,message,service)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [lead.name, lead.address || '', lead.postcode || '', lead.email || '', lead.phone || '', lead.property_type || '', lead.frequency || '', lead.message || '', lead.service || 'Window cleaning']
   );
   res.status(201).json({ ok: true, lead: result.rows[0] });
 });
@@ -343,7 +344,7 @@ app.post('/admin/leads/:id/convert', auth, async (req, res) => {
     return res.json({ ok: true, existing: true, customer: existing.rows[0], message: 'Lead matched existing customer/contact. No duplicate created.' });
   }
 
-  const notes = [lead.property_type, lead.message].filter(Boolean).join(' - ');
+  const notes = [lead.service, lead.property_type, lead.message].filter(Boolean).join(' - ');
   const customer = await pool.query(
     `INSERT INTO customers (name,address,postcode,email,phone,notes,frequency,status)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,

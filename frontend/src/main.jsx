@@ -10,7 +10,7 @@ const today = new Date().toISOString().slice(0, 10);
 
 function App() {
   const isAdminPage = window.location.pathname.replace(/\/+$/, '') === '/admin';
-  const [lead, setLead] = useState({ name: '', phone: '', email: '', address: '', postcode: '', property_type: '', frequency: 'Monthly', message: '' });
+  const [lead, setLead] = useState({ name: '', phone: '', email: '', address: '', postcode: '', property_type: '', service: 'Domestic window cleaning', frequency: 'Monthly', message: '' });
   const [leadSent, setLeadSent] = useState(false);
   const [token, setToken] = useState(localStorage.getItem('cwc_token') || '');
   const [login, setLogin] = useState({ email: 'admin@cumbriawindowcleaning.local', password: '' });
@@ -39,7 +39,7 @@ function App() {
     const matches = (...values) => values.some(value => String(value || '').toLowerCase().includes(query));
     return [
       ...customers.filter(c => matches(c.name, c.address, c.postcode, c.email, c.phone, c.notes, c.access_notes)).map(c => ({ ...c, source: 'customer' })),
-      ...leads.filter(l => matches(l.name, l.address, l.postcode, l.email, l.phone, l.message)).map(l => ({ ...l, source: 'lead', notes: l.message, amount_owed: 0 }))
+      ...leads.filter(l => matches(l.name, l.address, l.postcode, l.email, l.phone, l.service, l.message)).map(l => ({ ...l, source: 'lead', notes: [l.service, l.message].filter(Boolean).join(' · '), amount_owed: 0 }))
     ];
   }, [search, customers, leads]);
 
@@ -80,7 +80,7 @@ function App() {
     try {
       await api('/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lead) });
       setLeadSent(true);
-      setLead({ name: '', phone: '', email: '', address: '', postcode: '', property_type: '', frequency: 'Monthly', message: '' });
+      setLead({ name: '', phone: '', email: '', address: '', postcode: '', property_type: '', service: 'Domestic window cleaning', frequency: 'Monthly', message: '' });
     } catch (e) { setError(e.message); }
   }
 
@@ -223,8 +223,11 @@ function App() {
         </div>
       </section>
 
-      <section id="services" className="section cards">
+      <section id="services" className="servicesSection">
+        <div className="sectionIntro"><p className="eyebrow">What we can help with</p><h2>A cleaner finish, inside and out.</h2><p>Flexible local services for homes and businesses across Cumbria.</p></div>
+        <div className="section cards">
         {[['Domestic window cleaning','Dependable cleaning for homes of every size.'],['Commercial window cleaning','A professional finish for shops, offices and premises.'],['Regular cleaning rounds','Choose a schedule that keeps your windows looking their best.'],['Carpet cleaning','Refresh carpets in homes, offices and commercial premises.'],['Conservatories and extras','Ask about conservatories, fascias and additional cleaning.']].map(([title, copy], index) => <article className="card" key={title}><span className="serviceNumber">0{index + 1}</span><h3>{title}</h3><p>{copy}</p><a href="#quote">Request a quote →</a></article>)}
+        </div>
       </section>
 
       <section id="quote" className="section quoteSection">
@@ -236,7 +239,8 @@ function App() {
           <input placeholder="Email" value={lead.email} onChange={e => setLead({ ...lead, email: e.target.value })} />
           <input placeholder="Postcode" value={lead.postcode} onChange={e => setLead({ ...lead, postcode: e.target.value })} />
           <input className="wide" placeholder="Address" value={lead.address} onChange={e => setLead({ ...lead, address: e.target.value })} />
-          <select value={lead.frequency} onChange={e => setLead({ ...lead, frequency: e.target.value })}><option>Monthly</option><option>Fortnightly</option><option>One-off</option><option>Commercial quote</option></select>
+          <label className="formField"><span>Service required</span><select value={lead.service} onChange={e => setLead({ ...lead, service: e.target.value })}><option>Domestic window cleaning</option><option>Commercial window cleaning</option><option>Regular cleaning round</option><option>Carpet cleaning</option><option>Conservatory cleaning</option><option>Fascias and extras</option><option>Other / not sure</option></select></label>
+          <label className="formField"><span>How often?</span><select value={lead.frequency} onChange={e => setLead({ ...lead, frequency: e.target.value })}><option>Monthly</option><option>Fortnightly</option><option>One-off</option><option>Commercial quote</option><option>Not sure</option></select></label>
           <input placeholder="Property type" value={lead.property_type} onChange={e => setLead({ ...lead, property_type: e.target.value })} />
           <textarea className="wide" placeholder="Notes" value={lead.message} onChange={e => setLead({ ...lead, message: e.target.value })} />
           <button className="button wide quoteSubmit">Request my free quote <span>→</span></button>
@@ -305,7 +309,7 @@ function CustomerRow({ c, saveCustomer, openCustomer }) {
 function JobList({ jobs, updateJob, empty = 'No jobs found.' }) { return <div className="tableList">{jobs.length ? jobs.map(j => <article className="row" key={j.id}><div><strong>{j.job_date?.slice(0,10)} · {j.customer_name}</strong><span>{j.address}</span><span>{j.notes}</span></div><StatusBadge value={j.status} /><b>£{Number(j.price || 0).toFixed(2)}</b><div className="compactActions"><button onClick={() => updateJob(j, 'Done')}>Done</button><button className="small" onClick={() => updateJob(j, 'Skipped')}>Skip</button></div></article>) : <p className="emptyState">{empty}</p>}</div>; }
 function MoneyList({ customers, saveCustomer, openCustomer }) { return <div className="tableList">{customers.filter(c => Number(c.amount_owed) > 0).map(c => <CustomerRow key={c.id} c={c} saveCustomer={saveCustomer} openCustomer={openCustomer} />)}</div>; }
 function LeadList({ leads, updateLeadStatus, saveLead, convertLead, leadMatch }) { return <div className="tableList">{leads.length ? leads.map(l => <LeadRow key={l.id} lead={l} updateLeadStatus={updateLeadStatus} saveLead={saveLead} convertLead={convertLead} match={leadMatch(l)} />) : <p className="emptyState">No leads match this filter.</p>}</div>; }
-function LeadRow({ lead, updateLeadStatus, saveLead, convertLead, match }) { const [edit, setEdit] = useState(lead); useEffect(() => setEdit(lead), [lead]); return <article className="row leadRow"><div><strong>{lead.name} · {lead.phone}</strong><span>{lead.address} {lead.postcode}</span><span>{lead.message}</span>{match && <span className="badge">Existing customer/contact: {match.name}</span>}</div><StatusBadge value={lead.status} /><div className="leadDetails"><label>Follow up <input type="date" value={edit.follow_up_date?.slice(0,10) || ''} onChange={e => setEdit({ ...edit, follow_up_date: e.target.value })} /></label><label>Quote £ <input type="number" value={edit.quoted_amount || ''} onChange={e => setEdit({ ...edit, quoted_amount: e.target.value })} /></label><button className="small" onClick={() => saveLead(edit)}>Save details</button></div><div className="rowActions"><a className="actionLink" href={`tel:${lead.phone}`}>Call</a><a className="actionLink" href={`https://wa.me/${cleanPhone(lead.phone).replace(/^0/, '44')}`} target="_blank" rel="noreferrer">WhatsApp</a><button onClick={() => updateLeadStatus(lead.id, 'Contacted')}>Contacted</button><button onClick={() => convertLead(lead.id)}>{match ? 'Mark existing' : 'Add as customer'}</button><button className="dangerButton" onClick={() => updateLeadStatus(lead.id, 'Lost / Not interested')}>Lost</button></div></article>; }
+function LeadRow({ lead, updateLeadStatus, saveLead, convertLead, match }) { const [edit, setEdit] = useState(lead); useEffect(() => setEdit(lead), [lead]); return <article className="row leadRow"><div><strong>{lead.name} · {lead.phone}</strong><span>{lead.service || 'Window cleaning'} · {lead.address} {lead.postcode}</span><span>{lead.message}</span>{match && <span className="badge">Existing customer/contact: {match.name}</span>}</div><StatusBadge value={lead.status} /><div className="leadDetails"><label>Follow up <input type="date" value={edit.follow_up_date?.slice(0,10) || ''} onChange={e => setEdit({ ...edit, follow_up_date: e.target.value })} /></label><label>Quote £ <input type="number" value={edit.quoted_amount || ''} onChange={e => setEdit({ ...edit, quoted_amount: e.target.value })} /></label><button className="small" onClick={() => saveLead(edit)}>Save details</button></div><div className="rowActions"><a className="actionLink" href={`tel:${lead.phone}`}>Call</a><a className="actionLink" href={`https://wa.me/${cleanPhone(lead.phone).replace(/^0/, '44')}`} target="_blank" rel="noreferrer">WhatsApp</a><button onClick={() => updateLeadStatus(lead.id, 'Contacted')}>Contacted</button><button onClick={() => convertLead(lead.id)}>{match ? 'Mark existing' : 'Add as customer'}</button><button className="dangerButton" onClick={() => updateLeadStatus(lead.id, 'Lost / Not interested')}>Lost</button></div></article>; }
 function LeadFilters({ value, onChange }) { return <div className="filterBar">{['Open','Follow-ups due','Won','Lost','All'].map(item => <button key={item} className={value === item ? 'active' : 'small'} onClick={() => onChange(item)}>{item}</button>)}</div>; }
 function PaymentForm({ form, setForm, customers, onSubmit }) { return <form className="paymentForm" onSubmit={onSubmit}><h3>Record payment</h3><select required value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}><option value="">Choose customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name} · owes £{Number(c.amount_owed).toFixed(2)}</option>)}</select><input required min="0.01" step="0.01" type="number" placeholder="Amount" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /><select value={form.method} onChange={e => setForm({ ...form, method: e.target.value })}><option>Bank transfer</option><option>Cash</option><option>Card</option><option>Other</option></select><input type="date" value={form.paid_at} onChange={e => setForm({ ...form, paid_at: e.target.value })} /><input placeholder="Payment notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /><button>Record payment</button></form>; }
 function PaymentList({ payments }) { return <div className="tableList">{payments.length ? payments.map(p => <article className="row" key={p.id}><div><strong>{p.customer_name}</strong><span>{p.paid_at?.slice(0,10)} · {p.method}</span><span>{p.notes}</span></div><b className="paidAmount">+£{Number(p.amount).toFixed(2)}</b></article>) : <p className="emptyState">No payments recorded yet.</p>}</div>; }
