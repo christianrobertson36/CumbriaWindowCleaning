@@ -73,6 +73,12 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 
+    CREATE TABLE IF NOT EXISTS app_settings (
+      setting_key TEXT PRIMARY KEY,
+      setting_value TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS next_clean_date DATE;
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS area TEXT NOT NULL DEFAULT '';
     ALTER TABLE jobs ADD COLUMN IF NOT EXISTS charged_at TIMESTAMPTZ;
@@ -116,6 +122,29 @@ function frequencyDays(value) {
   return 0;
 }
 
+async function notificationSettings() {
+  const result = await pool.query(`SELECT setting_key,setting_value FROM app_settings WHERE setting_key LIKE 'notification_%'`);
+  return Object.fromEntries(result.rows.map(row => [row.setting_key, row.setting_value]));
+}
+
+async function publishNotification({ title, message }) {
+  const settings = await notificationSettings();
+  if (settings.notification_enabled !== 'true' || !settings.notification_topic) return { sent: false, reason: 'disabled' };
+  const serverUrl = cleanText(settings.notification_server_url || 'https://ntfy.sh').replace(/\/+$/, '');
+  const parsed = new URL(serverUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Notification server must use HTTP or HTTPS');
+  const headers = { 'Content-Type': 'application/json' };
+  if (settings.notification_access_token) headers.Authorization = `Bearer ${settings.notification_access_token}`;
+  const response = await fetch(serverUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ topic: settings.notification_topic, title, message, priority: 4, tags: ['new', 'broom'] }),
+    signal: AbortSignal.timeout(5000)
+  });
+  if (!response.ok) throw new Error(`Notification service returned ${response.status}`);
+  return { sent: true };
+}
+
 app.get('/health', (_req, res) => {
   res.json({ ok: true, app: 'Cumbria Window Cleaning API', version: 'v1' });
 });
@@ -137,6 +166,53 @@ app.post('/leads', async (req, res) => {
     [lead.name, lead.address || '', lead.postcode || '', lead.email || '', lead.phone || '', lead.property_type || '', lead.frequency || '', lead.message || '', lead.service || 'Window cleaning']
   );
   res.status(201).json({ ok: true, lead: result.rows[0] });
+  const savedLead = result.rows[0];
+  publishNotification({
+    title: `New quote request: ${savedLead.name}`,
+    message: `${savedLead.service || 'Cleaning enquiry'} · ${savedLead.phone}${savedLead.postcode ? ` · ${savedLead.postcode}` : ''}`
+  }).catch(error => console.error('Lead notification failed:', error.message));
+});
+
+app.get('/admin/settings/notifications', auth, async (_req, res) => {
+  const settings = await notificationSettings();
+  res.json({
+    ok: true,
+    settings: {
+      enabled: settings.notification_enabled === 'true',
+      server_url: settings.notification_server_url || 'https://ntfy.sh',
+      topic: settings.notification_topic || '',
+      token_configured: Boolean(settings.notification_access_token)
+    }
+  });
+});
+
+app.put('/admin/settings/notifications', auth, async (req, res) => {
+  const input = req.body || {};
+  const serverUrl = cleanText(input.server_url || 'https://ntfy.sh').replace(/\/+$/, '');
+  const topic = cleanText(input.topic);
+  let parsed;
+  try { parsed = new URL(serverUrl); } catch { return res.status(400).json({ ok: false, error: 'Enter a valid notification server URL' }); }
+  if (!['http:', 'https:'].includes(parsed.protocol)) return res.status(400).json({ ok: false, error: 'Notification server must use HTTP or HTTPS' });
+  if (topic && !/^[a-zA-Z0-9_-]{3,128}$/.test(topic)) return res.status(400).json({ ok: false, error: 'Topic must be 3–128 letters, numbers, hyphens or underscores' });
+  const values = {
+    notification_enabled: input.enabled ? 'true' : 'false',
+    notification_server_url: serverUrl,
+    notification_topic: topic
+  };
+  if (cleanText(input.access_token)) values.notification_access_token = cleanText(input.access_token);
+  if (input.clear_token) values.notification_access_token = '';
+  for (const [key, value] of Object.entries(values)) {
+    await pool.query(`INSERT INTO app_settings (setting_key,setting_value) VALUES ($1,$2) ON CONFLICT (setting_key) DO UPDATE SET setting_value=EXCLUDED.setting_value,updated_at=now()`, [key, value]);
+  }
+  res.json({ ok: true, message: 'Notification settings saved' });
+});
+
+app.post('/admin/settings/notifications/test', auth, async (_req, res) => {
+  try {
+    const result = await publishNotification({ title: 'Cumbria Window Cleaning', message: 'Test notification received successfully.' });
+    if (!result.sent) return res.status(400).json({ ok: false, error: 'Enable notifications and save a topic first' });
+    res.json({ ok: true, message: 'Test notification sent' });
+  } catch (error) { res.status(502).json({ ok: false, error: error.message }); }
 });
 
 app.get('/admin/summary', auth, async (_req, res) => {

@@ -31,6 +31,7 @@ function App() {
   const [leadFilter, setLeadFilter] = useState('Open');
   const [paymentForm, setPaymentForm] = useState({ customer_id: '', amount: '', method: 'Bank transfer', paid_at: today, notes: '' });
   const [throughDate, setThroughDate] = useState(new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
+  const [notificationForm, setNotificationForm] = useState({ enabled: false, server_url: 'https://ntfy.sh', topic: '', access_token: '', token_configured: false, clear_token: false });
 
   const headers = useMemo(() => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }), [token]);
   const searchResults = useMemo(() => {
@@ -53,13 +54,14 @@ function App() {
   async function loadAdmin() {
     if (!token) return;
     try {
-      const [s, c, j, l, contactData, paymentData] = await Promise.all([
+      const [s, c, j, l, contactData, paymentData, notificationData] = await Promise.all([
         api('/admin/summary', { headers }),
         api('/admin/customers', { headers }),
         api('/admin/jobs', { headers }),
         api('/admin/leads', { headers }),
         api('/admin/contacts', { headers }),
-        api('/admin/payments', { headers })
+        api('/admin/payments', { headers }),
+        api('/admin/settings/notifications', { headers })
       ]);
       setSummary(s.summary);
       setCustomers(c.customers);
@@ -67,6 +69,7 @@ function App() {
       setLeads(l.leads);
       setContacts(contactData.contacts);
       setPayments(paymentData.payments);
+      setNotificationForm(current => ({ ...current, ...notificationData.settings, access_token: '', clear_token: false }));
     } catch (e) {
       setError(e.message);
     }
@@ -174,6 +177,23 @@ function App() {
     } catch (e) { setError(e.message); }
   }
 
+  async function saveNotificationSettings(e) {
+    e.preventDefault(); setError(''); setNotice('');
+    try {
+      await api('/admin/settings/notifications', { method: 'PUT', headers, body: JSON.stringify(notificationForm) });
+      setNotice('Push notification settings saved.');
+      await loadAdmin();
+    } catch (e) { setError(e.message); }
+  }
+
+  async function testNotification() {
+    setError(''); setNotice('');
+    try {
+      const result = await api('/admin/settings/notifications/test', { method: 'POST', headers });
+      setNotice(result.message || 'Test notification sent.');
+    } catch (e) { setError(e.message); }
+  }
+
   function exportCsv() {
     const rows = [['Type','Name','Address','Postcode','Email','Phone','Status','Amount owed','Notes'], ...contacts.map(c => [c.source,c.name,c.address,c.postcode,c.email,c.phone,c.status,c.amount_owed,c.notes])];
     const csv = rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -257,7 +277,7 @@ function App() {
         {!token ? <form className="login" onSubmit={doLogin}><input value={login.email} onChange={e => setLogin({ ...login, email: e.target.value })} /><input type="password" placeholder="Password" value={login.password} onChange={e => setLogin({ ...login, password: e.target.value })} /><button className="button">Login</button></form> : <>
           <div className="adminSearch"><input type="search" aria-label="Search all customers, contacts and leads" placeholder="Search customers, contacts and leads..." value={search} onChange={e => setSearch(e.target.value)} />{search && <button className="small" onClick={() => setSearch('')}>Clear</button>}</div>
           <div className="adminTools"><button className="small" onClick={exportCsv}>Export contacts CSV</button></div>
-          <div className="tabs">{['dashboard','today','customers','planner','payments','leads','contacts'].map(t => <button className={tab === t ? 'active' : ''} onClick={() => setTab(t)} key={t}>{t}</button>)}</div>
+          <div className="tabs">{['dashboard','today','customers','planner','payments','leads','contacts','settings'].map(t => <button className={tab === t ? 'active' : ''} onClick={() => setTab(t)} key={t}>{t}</button>)}</div>
           {search ? <section className="searchResults"><div className="listHeading"><h3>Search results</h3><span>{searchResults.length} found</span></div><ContactList contacts={searchResults} empty="No matching customers, contacts or leads." /></section> : <>
           {tab === 'dashboard' && <div className="stats">
             <Stat title="Active customers" value={summary?.active_customers ?? 0} />
@@ -273,6 +293,7 @@ function App() {
           {tab === 'planner' && <><div className="plannerTools"><form className="inlineForm" onSubmit={addJob}><select value={jobForm.customer_id} onChange={e => setJobForm({ ...jobForm, customer_id: e.target.value })}><option value="">Choose customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select><input type="date" value={jobForm.job_date} onChange={e => setJobForm({ ...jobForm, job_date: e.target.value })} /><input placeholder="Notes" value={jobForm.notes} onChange={e => setJobForm({ ...jobForm, notes: e.target.value })} /><button>Add job</button></form><div className="recurringTool"><label>Generate recurring jobs through <input type="date" value={throughDate} onChange={e => setThroughDate(e.target.value)} /></label><button onClick={generateRecurring}>Generate</button></div></div><JobList jobs={jobs} updateJob={updateJob} /></>}
           {tab === 'payments' && <><PaymentForm form={paymentForm} setForm={setPaymentForm} customers={customers} onSubmit={addPayment} /><PaymentList payments={payments} /><h3>Outstanding balances</h3><MoneyList customers={customers} saveCustomer={saveCustomer} openCustomer={openCustomer} /></>}
           {tab === 'leads' && <><LeadFilters value={leadFilter} onChange={setLeadFilter} /><LeadList leads={filterLeads(leads, leadFilter)} updateLeadStatus={updateLeadStatus} saveLead={saveLead} convertLead={convertLead} leadMatch={leadMatch} /></>}
+          {tab === 'settings' && <NotificationSettings form={notificationForm} setForm={setNotificationForm} onSubmit={saveNotificationSettings} onTest={testNotification} />}
           </>}
         </>}
       </section>}
@@ -314,6 +335,7 @@ function LeadFilters({ value, onChange }) { return <div className="filterBar">{[
 function PaymentForm({ form, setForm, customers, onSubmit }) { return <form className="paymentForm" onSubmit={onSubmit}><h3>Record payment</h3><select required value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}><option value="">Choose customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name} · owes £{Number(c.amount_owed).toFixed(2)}</option>)}</select><input required min="0.01" step="0.01" type="number" placeholder="Amount" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /><select value={form.method} onChange={e => setForm({ ...form, method: e.target.value })}><option>Bank transfer</option><option>Cash</option><option>Card</option><option>Other</option></select><input type="date" value={form.paid_at} onChange={e => setForm({ ...form, paid_at: e.target.value })} /><input placeholder="Payment notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /><button>Record payment</button></form>; }
 function PaymentList({ payments }) { return <div className="tableList">{payments.length ? payments.map(p => <article className="row" key={p.id}><div><strong>{p.customer_name}</strong><span>{p.paid_at?.slice(0,10)} · {p.method}</span><span>{p.notes}</span></div><b className="paidAmount">+£{Number(p.amount).toFixed(2)}</b></article>) : <p className="emptyState">No payments recorded yet.</p>}</div>; }
 function CustomerHistory({ data, close, setPayment, goPayments }) { const { customer, jobs, payments } = data; return <section className="historyPanel"><div className="listHeading"><div><p className="eyebrow">Customer record</p><h3>{customer.name}</h3></div><button className="small" onClick={close}>Close</button></div><div className="historySummary"><span>Balance <strong>£{Number(customer.amount_owed).toFixed(2)}</strong></span><span>Jobs <strong>{jobs.length}</strong></span><span>Payments <strong>{payments.length}</strong></span></div><div className="contactActions">{customer.phone && <a className="actionLink" href={`tel:${customer.phone}`}>Call</a>}{customer.email && <a className="actionLink" href={`mailto:${customer.email}`}>Email</a>}<button onClick={() => { setPayment(form => ({ ...form, customer_id: customer.id, amount: customer.amount_owed || '' })); goPayments(); }}>Record payment</button></div><div className="historyColumns"><div><h4>Job history</h4>{jobs.slice(0,10).map(j => <p key={j.id}><strong>{j.job_date?.slice(0,10)}</strong> · {j.status} · £{Number(j.price).toFixed(2)}</p>)}</div><div><h4>Payment history</h4>{payments.slice(0,10).map(p => <p key={p.id}><strong>{p.paid_at?.slice(0,10)}</strong> · {p.method} · £{Number(p.amount).toFixed(2)}</p>)}</div></div></section>; }
+function NotificationSettings({ form, setForm, onSubmit, onTest }) { return <section className="settingsPanel"><div><p className="eyebrow">Phone alerts</p><h3>New lead push notifications</h3><p>Install the ntfy app on the admin phone, subscribe to the same private topic below, then send a test.</p></div><form onSubmit={onSubmit} className="settingsForm"><label className="toggleRow"><input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} /><span>Enable new-lead notifications</span></label><label>Notification server<input required value={form.server_url} onChange={e => setForm({ ...form, server_url: e.target.value })} placeholder="https://ntfy.sh" /></label><label>Private topic name<input required={form.enabled} value={form.topic} onChange={e => setForm({ ...form, topic: e.target.value })} placeholder="cwc-long-random-private-topic" /></label><label>Access token {form.token_configured && <span className="configuredBadge">Saved</span>}<input type="password" value={form.access_token} onChange={e => setForm({ ...form, access_token: e.target.value, clear_token: false })} placeholder={form.token_configured ? 'Leave blank to keep saved token' : 'Optional for protected topics'} /></label>{form.token_configured && <label className="toggleRow"><input type="checkbox" checked={form.clear_token} onChange={e => setForm({ ...form, clear_token: e.target.checked })} /><span>Remove saved access token</span></label>}<div className="settingsActions"><button>Save settings</button><button type="button" className="small" onClick={onTest}>Send test notification</button></div></form><aside className="settingsHelp"><strong>Phone setup</strong><ol><li>Install the ntfy app from your phone’s app store.</li><li>Subscribe to the exact topic entered above.</li><li>Save these settings, then press Send test notification.</li></ol><p>Use a long, unguessable topic name. Public ntfy.sh topics are accessible to anyone who knows the topic.</p></aside></section>; }
 function ContactFilters({ value, onChange }) { return <div className="filterBar" aria-label="Contact filters">{['All', 'Customers', 'Leads', 'Owes money', 'Active'].map(filter => <button key={filter} className={value === filter ? 'active' : 'small'} onClick={() => onChange(filter)}>{filter}</button>)}</div>; }
 function StatusBadge({ value }) { return <span className={`statusBadge status-${String(value || '').toLowerCase().replace(/[^a-z]+/g, '-')}`}>{value}</span>; }
 function ContactList({ contacts, empty = 'No contacts found.' }) { return <div className="tableList">{contacts.length ? contacts.map(c => <article className="row" key={`${c.source}-${c.id}`}><div><strong>{c.name}</strong><span>{c.address} {c.postcode}</span><span>{c.phone} {c.email}</span><span>{c.notes}</span></div><span className="typeBadge">{c.source === 'customer' ? 'Customer' : 'Lead'}</span><StatusBadge value={c.status} /><b>{Number(c.amount_owed) > 0 ? `£${Number(c.amount_owed).toFixed(2)}` : ''}</b></article>) : <p className="emptyState">{empty}</p>}</div>; }
