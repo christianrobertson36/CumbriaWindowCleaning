@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import './admin-v5.css';
+import './public-v7.css';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5055';
 const blankCustomer = { name: '', address: '', postcode: '', email: '', phone: '', access_notes: '', notes: '', clean_price: 0, frequency: 'Monthly', amount_owed: 0, status: 'Active', next_clean_date: '', area: '' };
@@ -199,33 +200,37 @@ function App() {
 
   return <>
     <header className={`topbar ${isAdminPage ? 'adminTopbar' : ''}`}>
-      <div className="brandMark"><span className="bucket">⌂</span><div><strong>Cumbria</strong><span>Window Cleaning</span></div></div>
-      {isAdminPage ? <nav><a href="/">View public website</a></nav> : <nav><a href="#quote">Get a quote</a><a href="#services">Services</a></nav>}
+      <a className="brandMark" href="/" aria-label="Cumbria Window Cleaning home"><span className="bucket">⌂</span><div><strong>Cumbria</strong><span>Window Cleaning</span></div></a>
+      {isAdminPage ? <nav><a href="/">View public website</a></nav> : <nav><a href="#services">Services</a><a className="navQuote" href="#quote">Get a free quote</a></nav>}
     </header>
 
     <main className={isAdminPage ? 'adminPage' : ''}>
       {!isAdminPage && <>
       <section className="hero">
         <div>
-          <p className="eyebrow">Commercial & domestic</p>
-          <h1>Reliable window cleaning across Cumbria.</h1>
-          <p className="heroText">A simple local website for Facebook adverts, quote requests and regular customer bookings.</p>
-          <div className="heroActions"><a className="button" href="#quote">Request a quote</a><a className="button ghost" href="tel:+440000000000">Call now</a></div>
+          <p className="eyebrow">Local · Reliable · Professional</p>
+          <h1>Clearer windows, without the hassle.</h1>
+          <p className="heroText">Reliable domestic and commercial window cleaning across Cumbria, with regular rounds and one-off cleans available.</p>
+          <div className="heroActions"><a className="button primaryCta" href="#quote">Get my free quote <span>→</span></a><a className="button ghost" href="#services">Explore services</a></div>
+          <div className="trustRow"><span>✓ Easy quote requests</span><span>✓ Regular or one-off cleans</span><span>✓ Homes, shops and offices</span></div>
         </div>
         <div className="heroCard">
-          <h3>Local cleaning slots</h3>
-          <p>Domestic homes, shops, offices and regular rounds.</p>
-          <ul><li>Regular monthly cleans</li><li>One-off cleans</li><li>Payment tracking</li><li>Planner built in</li></ul>
+          <span className="heroCardLabel">Now taking enquiries</span>
+          <h3>Window cleaning that fits around you.</h3>
+          <p>Tell us what you need and we’ll get back to you with a straightforward quote.</p>
+          <ul><li>Domestic properties</li><li>Commercial premises</li><li>Regular cleaning rounds</li><li>One-off cleans and extras</li></ul>
+          <a href="#quote">Check availability <span>→</span></a>
         </div>
       </section>
 
       <section id="services" className="section cards">
-        {['Domestic window cleaning','Commercial window cleaning','Regular rounds','Conservatories, fascias and extras'].map((title) => <article className="card" key={title}><h3>{title}</h3><p>Professional service with easy booking and clear customer records.</p></article>)}
+        {[['Domestic window cleaning','Dependable cleaning for homes of every size.'],['Commercial window cleaning','A professional finish for shops, offices and premises.'],['Regular cleaning rounds','Choose a schedule that keeps your windows looking their best.'],['Conservatories and extras','Ask about conservatories, fascias and additional cleaning.']].map(([title, copy], index) => <article className="card" key={title}><span className="serviceNumber">0{index + 1}</span><h3>{title}</h3><p>{copy}</p><a href="#quote">Request a quote →</a></article>)}
       </section>
 
-      <section id="quote" className="section quotePanel">
-        <div><p className="eyebrow">Facebook advert landing page</p><h2>Request a free quote</h2><p>New leads land straight inside the private admin area.</p>{leadSent && <p className="success">Thanks, your request has been sent.</p>}</div>
-        <form onSubmit={submitLead} className="formGrid">
+      <section id="quote" className="section quoteSection">
+        <div className="quotePanel">
+        <div className="quoteIntro"><p className="eyebrow">Quick and easy</p><h2>Request a free quote</h2><p>Share a few details and we’ll get back to you about availability and pricing.</p>{leadSent && <p className="success">Thanks—your request has been sent. We’ll be in touch.</p>}</div>
+        <form onSubmit={submitLead} className="formGrid quoteForm">
           <input required placeholder="Name" value={lead.name} onChange={e => setLead({ ...lead, name: e.target.value })} />
           <input required placeholder="Phone" value={lead.phone} onChange={e => setLead({ ...lead, phone: e.target.value })} />
           <input placeholder="Email" value={lead.email} onChange={e => setLead({ ...lead, email: e.target.value })} />
@@ -234,8 +239,10 @@ function App() {
           <select value={lead.frequency} onChange={e => setLead({ ...lead, frequency: e.target.value })}><option>Monthly</option><option>Fortnightly</option><option>One-off</option><option>Commercial quote</option></select>
           <input placeholder="Property type" value={lead.property_type} onChange={e => setLead({ ...lead, property_type: e.target.value })} />
           <textarea className="wide" placeholder="Notes" value={lead.message} onChange={e => setLead({ ...lead, message: e.target.value })} />
-          <button className="button wide">Send request</button>
+          <button className="button wide quoteSubmit">Request my free quote <span>→</span></button>
         </form>
+        <p className="privacyNote">Your details are only used to respond to your enquiry.</p>
+        </div>
       </section>
       </>}
 

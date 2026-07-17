@@ -1,0 +1,81 @@
+html { scroll-behavior: smooth; }
+body { background: #f7fbfd; }
+
+.topbar:not(.adminTopbar) {
+  min-height: 82px;
+  padding: 8px max(5vw, 24px);
+  border-bottom: 1px solid rgba(184, 216, 232, .7);
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 10px 34px rgba(18, 75, 112, .08);
+}
+.topbar:not(.adminTopbar) .bucket { width: 144px; height: 66px; }
+.topbar:not(.adminTopbar) nav { align-items: center; gap: 10px; }
+.topbar:not(.adminTopbar) nav > a { padding: 11px 15px; border-radius: 999px; }
+.topbar:not(.adminTopbar) nav > a:not(.navQuote):hover { background: #eef8fc; }
+.navQuote { color: #fff; background: linear-gradient(135deg, #1689c8, #0875b2); box-shadow: 0 10px 22px rgba(15, 128, 188, .24); }
+.navQuote:hover { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(15, 128, 188, .3); }
+
+.hero {
+  min-height: 650px;
+  padding: 90px max(6vw, 24px);
+  background: radial-gradient(circle at 85% 18%, rgba(40, 172, 230, .24), transparent 30%), radial-gradient(circle at 15% 100%, rgba(102, 205, 238, .18), transparent 27%), linear-gradient(135deg, #fff 0%, #eefaff 54%, #dff4fd 100%);
+}
+.hero > div:first-child { max-width: 800px; }
+.hero h1 { max-width: 760px; font-size: clamp(48px, 6.4vw, 82px); letter-spacing: -.045em; line-height: .98; }
+.heroText { max-width: 680px; margin: 24px 0 0; color: #466478; font-size: clamp(18px, 2vw, 22px); }
+.primaryCta, .quoteSubmit { background: linear-gradient(135deg, #168fce, #0875b2); box-shadow: 0 16px 32px rgba(8, 117, 178, .28); }
+.primaryCta:hover, .quoteSubmit:hover { transform: translateY(-2px); box-shadow: 0 20px 38px rgba(8, 117, 178, .34); }
+.primaryCta span, .quoteSubmit span, .heroCard a span { margin-left: 7px; }
+.trustRow { display: flex; gap: 10px 22px; flex-wrap: wrap; margin-top: 28px; color: #365b70; font-size: 14px; font-weight: 800; }
+.heroCard { position: relative; max-width: 460px; justify-self: end; padding: 38px; overflow: hidden; border-color: rgba(255,255,255,.8); background: rgba(255,255,255,.88); backdrop-filter: blur(16px); }
+.heroCard::after { content: ''; position: absolute; width: 150px; height: 150px; right: -55px; bottom: -65px; border-radius: 50%; background: #d9f3ff; }
+.heroCardLabel { display: inline-block; margin-bottom: 18px; padding: 7px 11px; border-radius: 999px; color: #0875b2; background: #e6f7ff; font-size: 12px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.heroCard h3 { font-size: clamp(28px, 3vw, 38px); line-height: 1.05; }
+.heroCard p { color: #597588; line-height: 1.6; }
+.heroCard ul { padding-left: 20px; color: #36576b; }
+.heroCard a { position: relative; z-index: 1; display: inline-block; margin-top: 10px; }
+
+.cards { max-width: 1500px; margin: 0 auto; padding-top: 78px; padding-bottom: 78px; }
+.card { position: relative; min-height: 235px; padding: 30px; transition: transform .2s ease, box-shadow .2s ease; }
+.card:hover { transform: translateY(-5px); box-shadow: 0 28px 60px rgba(18,75,112,.16); }
+.serviceNumber { color: #8fcce9; font-size: 13px; font-weight: 900; letter-spacing: .12em; }
+.card h3 { margin: 24px 0 12px; font-size: 22px; }
+.card p { color: #607b8d; line-height: 1.6; }
+.card a { display: inline-block; margin-top: 12px; font-size: 14px; }
+
+.quoteSection { padding: 30px max(5vw, 20px) 100px; background: linear-gradient(#f7fbfd, #e9f7fc); }
+.quoteSection .quotePanel { display: block; width: min(960px, 100%); margin: 0 auto; padding: clamp(28px, 5vw, 56px); border-radius: 34px; }
+.quoteIntro { max-width: 680px; margin: 0 auto 30px; text-align: center; }
+.quoteIntro h2 { margin: 0 0 12px; color: #163b52; font-size: clamp(34px, 5vw, 52px); letter-spacing: -.035em; }
+.quoteIntro > p:not(.eyebrow):not(.success) { color: #607b8d; font-size: 18px; line-height: 1.6; }
+.quoteForm { max-width: 780px; margin: 0 auto; gap: 14px; }
+.quoteForm input, .quoteForm select, .quoteForm textarea { border: 1px solid #c5e1ee; background: #f9fdff; transition: border .2s ease, box-shadow .2s ease, background .2s ease; }
+.quoteForm input:focus, .quoteForm select:focus, .quoteForm textarea:focus { outline: none; border-color: #38a4d8; background: #fff; box-shadow: 0 0 0 4px rgba(56,164,216,.12); }
+.quoteSubmit { min-height: 54px; margin-top: 6px; font-size: 16px; }
+.privacyNote { margin: 16px 0 0; color: #7890a0; text-align: center; font-size: 13px; }
+
+@media (max-width: 900px) {
+  .topbar:not(.adminTopbar) { flex-direction: row; align-items: center; }
+  .hero { min-height: auto; padding-top: 65px; }
+  .heroCard { max-width: none; justify-self: stretch; }
+  .cards { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 600px) {
+  .topbar:not(.adminTopbar) { min-height: 68px; padding: 6px 14px; gap: 8px; }
+  .topbar:not(.adminTopbar) .bucket { width: 112px; height: 54px; }
+  .topbar:not(.adminTopbar) nav > a:not(.navQuote) { display: none; }
+  .navQuote { padding: 10px 13px !important; font-size: 13px; }
+  .hero { padding: 52px 20px 60px; }
+  .hero h1 { font-size: 48px; }
+  .heroText { font-size: 18px; }
+  .heroActions { flex-direction: column; }
+  .heroActions .button { width: 100%; text-align: center; }
+  .trustRow { display: grid; }
+  .heroCard { padding: 28px; }
+  .cards { grid-template-columns: 1fr; padding: 50px 20px; }
+  .card { min-height: 0; }
+  .quoteSection { padding: 12px 14px 70px; }
+  .quoteSection .quotePanel { padding: 28px 18px; border-radius: 26px; }
+  .quoteForm { grid-template-columns: 1fr; }
+}
