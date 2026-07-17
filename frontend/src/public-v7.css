@@ -1,5 +1,6 @@
 html { scroll-behavior: smooth; }
 body { background: #f7fbfd; }
+.bucket { background-image: url('/logo-transparent-v2.png'); }
 
 .topbar:not(.adminTopbar) {
   min-height: 82px;
@@ -35,7 +36,7 @@ body { background: #f7fbfd; }
 .heroCard ul { padding-left: 20px; color: #36576b; }
 .heroCard a { position: relative; z-index: 1; display: inline-block; margin-top: 10px; }
 
-.cards { max-width: 1500px; margin: 0 auto; padding-top: 78px; padding-bottom: 78px; }
+.cards { grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); max-width: 1500px; margin: 0 auto; padding-top: 78px; padding-bottom: 78px; }
 .card { position: relative; min-height: 235px; padding: 30px; transition: transform .2s ease, box-shadow .2s ease; }
 .card:hover { transform: translateY(-5px); box-shadow: 0 28px 60px rgba(18,75,112,.16); }
 .serviceNumber { color: #8fcce9; font-size: 13px; font-weight: 900; letter-spacing: .12em; }

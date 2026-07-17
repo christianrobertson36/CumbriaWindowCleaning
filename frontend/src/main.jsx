@@ -224,7 +224,7 @@ function App() {
       </section>
 
       <section id="services" className="section cards">
-        {[['Domestic window cleaning','Dependable cleaning for homes of every size.'],['Commercial window cleaning','A professional finish for shops, offices and premises.'],['Regular cleaning rounds','Choose a schedule that keeps your windows looking their best.'],['Conservatories and extras','Ask about conservatories, fascias and additional cleaning.']].map(([title, copy], index) => <article className="card" key={title}><span className="serviceNumber">0{index + 1}</span><h3>{title}</h3><p>{copy}</p><a href="#quote">Request a quote →</a></article>)}
+        {[['Domestic window cleaning','Dependable cleaning for homes of every size.'],['Commercial window cleaning','A professional finish for shops, offices and premises.'],['Regular cleaning rounds','Choose a schedule that keeps your windows looking their best.'],['Carpet cleaning','Refresh carpets in homes, offices and commercial premises.'],['Conservatories and extras','Ask about conservatories, fascias and additional cleaning.']].map(([title, copy], index) => <article className="card" key={title}><span className="serviceNumber">0{index + 1}</span><h3>{title}</h3><p>{copy}</p><a href="#quote">Request a quote →</a></article>)}
       </section>
 
       <section id="quote" className="section quoteSection">
