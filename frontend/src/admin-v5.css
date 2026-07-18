@@ -22,6 +22,13 @@
 .adminPage .adminPanel { width: 100%; max-width: 1800px; min-height: calc(100vh - 180px); margin: 0 auto; }
 .adminTopbar { position: static; }
 .adminTools { display: flex; justify-content: flex-end; margin-top: 10px; }
+.csvImport { display: grid; grid-template-columns: 1fr auto; gap: 14px 22px; align-items: center; margin-bottom: 20px; padding: 18px 20px; border: 1px solid #cfe8f4; border-radius: 20px; background: linear-gradient(135deg,#eef9ff,#fff); }
+.csvImport strong { font-size: 18px; }
+.csvImport p { margin: 5px 0 0; color: #607b8d; line-height: 1.5; }
+.csvActions { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.fileButton { display: inline-flex; padding: 12px 18px; border-radius: 999px; background: #1d8bc9; color: #fff; font-weight: 900; cursor: pointer; }
+.fileButton input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.csvFile { grid-column: 1 / -1; color: #1d6fa6; font-size: 13px; font-weight: 800; }
 .plannerTools { display: grid; gap: 14px; }
 .recurringTool { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px; border-radius: 18px; background: #eef9ff; }
 .recurringTool label { display: flex; align-items: center; gap: 10px; font-weight: 800; }
@@ -66,4 +73,7 @@
   .rowActions button, .editorActions button { width: 100%; }
   .paymentForm, .historyColumns { grid-template-columns: 1fr; }
   .paymentForm h3 { grid-column: auto; }
+  .csvImport { grid-template-columns: 1fr; }
+  .csvActions { justify-content: stretch; }
+  .csvActions > * { width: 100%; justify-content: center; text-align: center; }
 }

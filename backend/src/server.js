@@ -112,6 +112,13 @@ function cleanText(value) {
   return String(value || '').trim();
 }
 
+function importFrequency(value) {
+  const frequency = cleanText(value).toLowerCase();
+  if (frequency === 'weekly' || frequency === 'week' || frequency === 'every week') return 'Weekly';
+  if (frequency === 'monthly' || frequency === 'month' || frequency === 'every month') return 'Monthly';
+  return cleanText(value) || 'Monthly';
+}
+
 function frequencyDays(value) {
   const frequency = cleanText(value).toLowerCase();
   if (frequency.includes('fortnight')) return 14;
@@ -263,6 +270,43 @@ app.patch('/admin/customers/:id', auth, async (req, res) => {
   );
   if (!result.rows[0]) return res.status(404).json({ ok: false, error: 'Customer not found' });
   res.json({ ok: true, customer: result.rows[0] });
+});
+
+app.post('/admin/customers/import', auth, async (req, res) => {
+  const customers = Array.isArray(req.body?.customers) ? req.body.customers : [];
+  if (!customers.length) return res.status(400).json({ ok: false, error: 'The CSV does not contain any customer rows' });
+  if (customers.length > 1000) return res.status(400).json({ ok: false, error: 'Import up to 1,000 customers at a time' });
+
+  const client = await pool.connect();
+  let imported = 0;
+  let skipped = 0;
+  const errors = [];
+  try {
+    await client.query('BEGIN');
+    for (let index = 0; index < customers.length; index += 1) {
+      const c = customers[index] || {};
+      const name = cleanText(c.name);
+      if (!name) { errors.push(`Row ${index + 2}: name is required`); continue; }
+      const email = cleanText(c.email);
+      const phone = cleanText(c.phone);
+      const duplicate = await client.query(
+        `SELECT id FROM customers WHERE ($1 <> '' AND lower(email)=lower($1)) OR ($2 <> '' AND regexp_replace(phone, '[^0-9]+', '', 'g')=regexp_replace($2, '[^0-9]+', '', 'g')) LIMIT 1`,
+        [email, phone]
+      );
+      if (duplicate.rows[0]) { skipped += 1; continue; }
+      await client.query(
+        `INSERT INTO customers (name,address,postcode,email,phone,access_notes,notes,clean_price,frequency,amount_owed,status,next_clean_date,area)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [name, cleanText(c.address), cleanText(c.postcode), email, phone, cleanText(c.access_notes), cleanText(c.notes), money(c.clean_price), importFrequency(c.frequency), money(c.amount_owed), cleanText(c.status) || 'Active', cleanText(c.next_clean_date) || null, cleanText(c.area)]
+      );
+      imported += 1;
+    }
+    await client.query('COMMIT');
+    res.status(201).json({ ok: true, imported, skipped, errors: errors.slice(0, 20), message: `${imported} customer${imported === 1 ? '' : 's'} imported. ${skipped} duplicate${skipped === 1 ? '' : 's'} skipped.` });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(400).json({ ok: false, error: `Import failed: ${error.message}` });
+  } finally { client.release(); }
 });
 
 app.get('/admin/customers/:id/history', auth, async (req, res) => {

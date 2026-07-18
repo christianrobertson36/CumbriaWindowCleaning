@@ -142,6 +142,17 @@ function App() {
     } catch (e) { setError(e.message); }
   }
 
+  async function importCustomers(customers) {
+    setError('');
+    setNotice('');
+    try {
+      const result = await api('/admin/customers/import', { method: 'POST', headers, body: JSON.stringify({ customers }) });
+      const rowWarnings = result.errors?.length ? ` ${result.errors.join(' ')}` : '';
+      setNotice(`${result.message}${rowWarnings}`);
+      await loadAdmin();
+    } catch (e) { setError(e.message); }
+  }
+
   async function saveLead(leadItem) {
     setError(''); setNotice('');
     try {
@@ -294,7 +305,7 @@ function App() {
             <Stat title="Follow-ups due" value={summary?.follow_ups_due ?? 0} />
           </div>}
           {tab === 'today' && <><div className="listHeading"><h3>Today's round</h3><span>{jobs.filter(j => j.job_date?.slice(0,10) === today).length} jobs</span></div><JobList jobs={jobs.filter(j => j.job_date?.slice(0,10) === today)} updateJob={updateJob} empty="No jobs planned for today." /></>}
-          {tab === 'contacts' && <><CustomerForm form={customerForm} setForm={setCustomerForm} onSubmit={addCustomer} /><ContactFilters value={contactFilter} onChange={setContactFilter} /><ContactList contacts={filterContacts(contacts, contactFilter)} empty="No contacts match this filter." /></>}
+          {tab === 'contacts' && <><CustomerImport onImport={importCustomers} /><CustomerForm form={customerForm} setForm={setCustomerForm} onSubmit={addCustomer} /><ContactFilters value={contactFilter} onChange={setContactFilter} /><ContactList contacts={filterContacts(contacts, contactFilter)} empty="No contacts match this filter." /></>}
           {tab === 'customers' && <>{customerHistory && <CustomerHistory data={customerHistory} close={() => setCustomerHistory(null)} setPayment={setPaymentForm} goPayments={() => setTab('payments')} />}<CustomerForm form={customerForm} setForm={setCustomerForm} onSubmit={addCustomer} /><CustomerList customers={customers} saveCustomer={saveCustomer} openCustomer={openCustomer} /></>}
           {tab === 'planner' && <><div className="plannerTools"><form className="inlineForm" onSubmit={addJob}><select value={jobForm.customer_id} onChange={e => setJobForm({ ...jobForm, customer_id: e.target.value })}><option value="">Choose customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select><input type="date" value={jobForm.job_date} onChange={e => setJobForm({ ...jobForm, job_date: e.target.value })} /><input placeholder="Notes" value={jobForm.notes} onChange={e => setJobForm({ ...jobForm, notes: e.target.value })} /><button>Add job</button></form><div className="recurringTool"><label>Generate recurring jobs through <input type="date" value={throughDate} onChange={e => setThroughDate(e.target.value)} /></label><button onClick={generateRecurring}>Generate</button></div></div><JobList jobs={jobs} updateJob={updateJob} /></>}
           {tab === 'payments' && <><PaymentForm form={paymentForm} setForm={setPaymentForm} customers={customers} onSubmit={addPayment} /><PaymentList payments={payments} /><h3>Outstanding balances</h3><MoneyList customers={customers} saveCustomer={saveCustomer} openCustomer={openCustomer} /></>}
@@ -325,6 +336,38 @@ function filterLeads(leads, filter) {
 function Stat({ title, value }) { return <div className="stat"><span>{title}</span><strong>{value}</strong></div>; }
 function Field({ form, setForm, name, placeholder, type = 'text' }) { return <input type={type} placeholder={placeholder} value={form[name] ?? ''} onChange={e => setForm({ ...form, [name]: e.target.value })} />; }
 function CustomerForm({ form, setForm, onSubmit }) { return <form className="formGrid compact" onSubmit={onSubmit}><Field form={form} setForm={setForm} name="name" placeholder="Name" /><Field form={form} setForm={setForm} name="phone" placeholder="Phone" /><Field form={form} setForm={setForm} name="email" placeholder="Email" /><Field form={form} setForm={setForm} name="postcode" placeholder="Postcode" /><Field form={form} setForm={setForm} name="address" placeholder="Address" /><Field form={form} setForm={setForm} name="area" placeholder="Round / area" /><Field form={form} setForm={setForm} name="clean_price" placeholder="Price" type="number" /><Field form={form} setForm={setForm} name="amount_owed" placeholder="Amount owed" type="number" /><Field form={form} setForm={setForm} name="next_clean_date" placeholder="Next clean" type="date" /><Field form={form} setForm={setForm} name="access_notes" placeholder="Access notes" /><button className="button wide">Add customer/contact</button></form>; }
+function parseCsv(text) {
+  const rows = []; let row = []; let field = ''; let quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === '"' && quoted && text[i + 1] === '"') { field += '"'; i += 1; }
+    else if (char === '"') quoted = !quoted;
+    else if (char === ',' && !quoted) { row.push(field); field = ''; }
+    else if ((char === '\n' || char === '\r') && !quoted) { if (char === '\r' && text[i + 1] === '\n') i += 1; row.push(field); if (row.some(value => value.trim())) rows.push(row); row = []; field = ''; }
+    else field += char;
+  }
+  row.push(field); if (row.some(value => value.trim())) rows.push(row);
+  if (rows.length < 2) throw new Error('CSV needs a header row and at least one customer');
+  const headers = rows[0].map(value => value.trim().toLowerCase().replace(/\s+/g, '_').replace(/^\ufeff/, ''));
+  if (!headers.includes('name')) throw new Error('CSV must include a name column');
+  return rows.slice(1).map(values => Object.fromEntries(headers.map((header, index) => [header, values[index]?.trim() || ''])));
+}
+function CustomerImport({ onImport }) {
+  const [fileName, setFileName] = useState('');
+  const [rows, setRows] = useState([]);
+  const [localError, setLocalError] = useState('');
+  async function chooseFile(event) {
+    const file = event.target.files?.[0];
+    setLocalError(''); setRows([]); setFileName(file?.name || '');
+    if (!file) return;
+    try { setRows(parseCsv(await file.text())); } catch (error) { setLocalError(error.message); }
+  }
+  function downloadTemplate() {
+    const csv = 'name,address,postcode,email,phone,clean_price,frequency,amount_owed,access_notes,notes,status,area,next_clean_date\nExample Customer,1 Main Street,CA1 1AA,customer@example.com,07123456789,15.00,Monthly,0,Side gate,Example note,Active,Carlisle,2026-08-01\n';
+    const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); link.download = 'cwc-customer-import-template.csv'; link.click(); URL.revokeObjectURL(link.href);
+  }
+  return <section className="csvImport"><div><strong>Import customer contacts</strong><p>Upload a CSV with customer details, price and Weekly or Monthly frequency. Existing matching email addresses or phone numbers are skipped.</p></div><div className="csvActions"><button type="button" className="small" onClick={downloadTemplate}>Download CSV template</button><label className="fileButton">Choose CSV<input type="file" accept=".csv,text/csv" onChange={chooseFile} /></label>{rows.length > 0 && <button type="button" onClick={() => onImport(rows)}>Import {rows.length} customer{rows.length === 1 ? '' : 's'}</button>}</div>{fileName && <span className="csvFile">{fileName}{rows.length ? ` · ${rows.length} rows ready` : ''}</span>}{localError && <p className="error">{localError}</p>}</section>;
+}
 function CustomerList({ customers, saveCustomer, openCustomer }) { return <div className="tableList">{customers.map(c => <CustomerRow key={c.id} c={c} saveCustomer={saveCustomer} openCustomer={openCustomer} />)}</div>; }
 function CustomerRow({ c, saveCustomer, openCustomer }) {
   const [editing, setEditing] = useState(false);
