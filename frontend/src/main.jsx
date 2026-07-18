@@ -243,7 +243,7 @@ function App() {
           <h1>Clearer windows, without the hassle.</h1>
           <p className="heroText">Reliable domestic and commercial window cleaning across Cumbria, with regular rounds and one-off cleans available.</p>
           <div className="heroActions"><a className="button primaryCta" href="#quote">Get my free quote <span>→</span></a><a className="button ghost" href="#services">Explore services</a></div>
-          <div className="trustRow"><span>✓ Easy quote requests</span><span>✓ Regular or one-off cleans</span><span>✓ Homes, shops and offices</span></div>
+          <div className="trustRow"><span>✓ Fully insured</span><span>✓ Easy quote requests</span><span>✓ Regular or one-off cleans</span><span>✓ Homes, shops and offices</span></div>
         </div>
         <div className="heroAside">
         <div className="heroCard">
@@ -270,6 +270,33 @@ function App() {
         </div>
       </section>
 
+      <section className="whySection">
+        <div className="sectionIntro"><p className="eyebrow">Simple from start to finish</p><h2>A cleaning service built around you.</h2><p>Clear communication, flexible options and a professional finish for every property.</p></div>
+        <div className="whyGrid">
+          <article><span>01</span><h3>Fully insured</h3><p>Work is carried out with full insurance cover for extra reassurance at your home or business.</p></article>
+          <article><span>02</span><h3>Easy to arrange</h3><p>Send your details online and we’ll get back to you with availability and a straightforward quote.</p></article>
+          <article><span>03</span><h3>Flexible visits</h3><p>Choose regular rounds or ask about a one-off clean when your property needs extra attention.</p></article>
+          <article><span>04</span><h3>More than windows</h3><p>Ask about carpets, conservatories, fascias and other exterior cleaning requirements.</p></article>
+        </div>
+      </section>
+
+      <section className="coverageSection">
+        <div><p className="eyebrow">Areas covered</p><h2>Local cleaning across Cumbria.</h2><p>Routes and availability vary, so send us your postcode and the service you need. We’ll confirm whether we can add your property to a regular round or arrange a one-off visit.</p></div>
+        <a className="button coverageCta" href="#quote">Check my postcode <span>→</span></a>
+      </section>
+
+      <section id="faq" className="faqSection">
+        <div className="sectionIntro"><p className="eyebrow">Good to know</p><h2>Frequently asked questions.</h2></div>
+        <div className="faqList">
+          <details><summary>Are you insured?</summary><p>Yes. Cumbria Window Cleaning is fully insured for work at homes and commercial properties.</p></details>
+          <details><summary>How do I get a quote?</summary><p>Complete the short form below with your address, postcode and required service. We’ll contact you about availability and pricing.</p></details>
+          <details><summary>Do you offer regular and one-off cleaning?</summary><p>Yes. You can request a regular cleaning round or a one-off visit. Available options depend on your location and the service required.</p></details>
+          <details><summary>Do I need to be at home?</summary><p>Not always. If safe access can be arranged, we can discuss this with you when confirming the clean.</p></details>
+          <details><summary>What happens during bad weather?</summary><p>If conditions are unsuitable or unsafe, we’ll contact you about the visit and arrange the most appropriate next step.</p></details>
+          <details><summary>Which cleaning services can I request?</summary><p>Domestic and commercial windows, regular rounds, carpets, conservatories, fascias and additional cleaning can all be requested through the quote form.</p></details>
+        </div>
+      </section>
+
       <section id="quote" className="section quoteSection">
         <div className="quotePanel">
         <div className="quoteIntro"><p className="eyebrow">Quick and easy</p><h2>Request a free quote</h2><p>Share a few details and we’ll get back to you about availability and pricing.</p>{leadSent && <p className="success">Thanks—your request has been sent. We’ll be in touch.</p>}</div>
@@ -288,6 +315,14 @@ function App() {
         <p className="privacyNote">Your details are only used to respond to your enquiry.</p>
         </div>
       </section>
+      <footer className="publicFooter">
+        <div className="footerBrand"><span className="footerLogo" aria-hidden="true"></span><p>Fully insured domestic and commercial cleaning services across Cumbria.</p></div>
+        <div><strong>Services</strong><a href="#services">Window cleaning</a><a href="#services">Carpet cleaning</a><a href="#services">Conservatories and extras</a></div>
+        <div><strong>Enquiries</strong><a href="#quote">Request a free quote</a><a href="#faq">Frequently asked questions</a></div>
+        <div id="privacy"><strong>Your privacy</strong><p>Details submitted through the quote form are used only to respond to your enquiry and manage any requested service.</p></div>
+        <p className="footerBottom">© {new Date().getFullYear()} Cumbria Window Cleaning</p>
+      </footer>
+      <a className="mobileQuoteBar" href="#quote">Get a free quote <span>→</span></a>
       </>}
 
       {isAdminPage && <section id="admin" className="section adminPanel">
