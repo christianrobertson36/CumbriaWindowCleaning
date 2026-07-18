@@ -85,6 +85,9 @@ async function initDb() {
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS follow_up_date DATE;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS quoted_amount NUMERIC(10,2) NOT NULL DEFAULT 0;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS service TEXT NOT NULL DEFAULT 'Window cleaning';
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS quote_notes TEXT NOT NULL DEFAULT '';
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS quote_valid_until DATE;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS quote_sent_at TIMESTAMPTZ;
   `);
 }
 
@@ -533,8 +536,8 @@ app.get('/admin/leads', auth, async (_req, res) => {
 app.patch('/admin/leads/:id', auth, async (req, res) => {
   const lead = req.body || {};
   const result = await pool.query(
-    `UPDATE leads SET status=COALESCE($1,status),follow_up_date=COALESCE($2,follow_up_date),quoted_amount=COALESCE($3,quoted_amount),updated_at=now() WHERE id=$4 RETURNING *`,
-    [lead.status || null, lead.follow_up_date || null, lead.quoted_amount === undefined ? null : money(lead.quoted_amount), req.params.id]
+    `UPDATE leads SET status=COALESCE($1,status),follow_up_date=CASE WHEN $8 THEN NULLIF($2,'')::date ELSE follow_up_date END,quoted_amount=COALESCE($3,quoted_amount),quote_notes=COALESCE($4,quote_notes),quote_valid_until=CASE WHEN $9 THEN NULLIF($5,'')::date ELSE quote_valid_until END,quote_sent_at=COALESCE($6,quote_sent_at),updated_at=now() WHERE id=$7 RETURNING *`,
+    [lead.status || null, lead.follow_up_date ?? '', lead.quoted_amount === undefined ? null : money(lead.quoted_amount), lead.quote_notes === undefined ? null : cleanText(lead.quote_notes), lead.quote_valid_until ?? '', lead.quote_sent_at || null, req.params.id, Object.hasOwn(lead, 'follow_up_date'), Object.hasOwn(lead, 'quote_valid_until')]
   );
   if (!result.rows[0]) return res.status(404).json({ ok: false, error: 'Lead not found' });
   res.json({ ok: true, lead: result.rows[0] });
