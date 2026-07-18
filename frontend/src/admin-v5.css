@@ -82,6 +82,8 @@
 .toggleRow { display: flex; align-items: center; gap: 10px; font-weight: 900; }
 .toggleRow input { width: 20px; height: 20px; }
 .settingsActions { display: flex; gap: 10px; flex-wrap: wrap; }
+.reminderOptions { display: grid; gap: 12px; padding: 16px; border: 1px solid #d8edf8; border-radius: 16px; background: #f7fcff; }
+.reminderOptions > label:not(.toggleRow) { display: grid; gap: 6px; color: #365b70; font-size: 13px; font-weight: 900; }
 .configuredBadge { display: inline-block; margin-left: 7px; padding: 3px 8px; border-radius: 999px; color: #147548; background: #e5f8ed; font-size: 11px; }
 .settingsHelp { grid-column: 1 / -1; padding: 16px 18px; border-radius: 16px; background: #fff; border: 1px solid #d8edf8; }
 .settingsHelp ol { margin-bottom: 6px; }

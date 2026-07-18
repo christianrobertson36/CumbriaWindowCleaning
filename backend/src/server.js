@@ -152,6 +152,42 @@ async function publishNotification({ title, message }) {
   return { sent: true };
 }
 
+function londonClock() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
+}
+
+async function runReminderAutomation(force = false) {
+  const settings = await notificationSettings();
+  if (settings.notification_enabled !== 'true') return { sent: 0, message: 'Phone notifications are disabled' };
+  const clock = londonClock();
+  const reminderHour = Math.min(23, Math.max(0, Number(settings.notification_reminder_hour ?? 18)));
+  if (!force && clock.hour < reminderHour) return { sent: 0, message: 'Waiting for reminder time' };
+  let sent = 0;
+  if (settings.notification_followup_reminders === 'true' && (force || settings.notification_followup_last_date !== clock.date)) {
+    const due = await pool.query(`SELECT name,phone,follow_up_date FROM leads WHERE follow_up_date<=CURRENT_DATE AND status NOT IN ('Won','Lost / Not interested','Existing customer') ORDER BY follow_up_date,name`);
+    if (due.rows.length) {
+      const names = due.rows.slice(0, 8).map(lead => lead.name).join(', ');
+      const result = await publishNotification({ title: `${due.rows.length} lead follow-up${due.rows.length === 1 ? '' : 's'} due`, message: `${names}${due.rows.length > 8 ? ` +${due.rows.length - 8} more` : ''}` });
+      if (result.sent) sent += 1;
+    }
+    await pool.query(`INSERT INTO app_settings (setting_key,setting_value) VALUES ('notification_followup_last_date',$1) ON CONFLICT (setting_key) DO UPDATE SET setting_value=EXCLUDED.setting_value,updated_at=now()`, [clock.date]);
+  }
+  if (settings.notification_schedule_reminders === 'true' && (force || settings.notification_schedule_last_date !== clock.date)) {
+    const tomorrow = new Date(`${clock.date}T12:00:00Z`); tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const date = tomorrow.toISOString().slice(0, 10);
+    const jobs = await pool.query(`SELECT j.customer_name,j.price,c.area FROM jobs j LEFT JOIN customers c ON c.id=j.customer_id WHERE j.job_date=$1 AND j.status NOT IN ('Cancelled','Skipped') ORDER BY COALESCE(c.area,''),j.id`, [date]);
+    if (jobs.rows.length) {
+      const total = jobs.rows.reduce((sum, job) => sum + money(job.price), 0);
+      const names = jobs.rows.slice(0, 8).map(job => job.customer_name).join(', ');
+      const result = await publishNotification({ title: `Tomorrow's cleaning round`, message: `${jobs.rows.length} jobs · £${total.toFixed(2)} · ${names}${jobs.rows.length > 8 ? ` +${jobs.rows.length - 8} more` : ''}` });
+      if (result.sent) sent += 1;
+    }
+    await pool.query(`INSERT INTO app_settings (setting_key,setting_value) VALUES ('notification_schedule_last_date',$1) ON CONFLICT (setting_key) DO UPDATE SET setting_value=EXCLUDED.setting_value,updated_at=now()`, [clock.date]);
+  }
+  return { sent, message: sent ? `${sent} reminder notification${sent === 1 ? '' : 's'} sent` : 'No reminders were due' };
+}
+
 app.get('/health', (_req, res) => {
   res.json({ ok: true, app: 'Cumbria Window Cleaning API', version: 'v1' });
 });
@@ -188,6 +224,9 @@ app.get('/admin/settings/notifications', auth, async (_req, res) => {
       enabled: settings.notification_enabled === 'true',
       server_url: settings.notification_server_url || 'https://ntfy.sh',
       topic: settings.notification_topic || '',
+      followup_reminders: settings.notification_followup_reminders === 'true',
+      schedule_reminders: settings.notification_schedule_reminders === 'true',
+      reminder_hour: Number(settings.notification_reminder_hour ?? 18),
       token_configured: Boolean(settings.notification_access_token)
     }
   });
@@ -204,7 +243,10 @@ app.put('/admin/settings/notifications', auth, async (req, res) => {
   const values = {
     notification_enabled: input.enabled ? 'true' : 'false',
     notification_server_url: serverUrl,
-    notification_topic: topic
+    notification_topic: topic,
+    notification_followup_reminders: input.followup_reminders ? 'true' : 'false',
+    notification_schedule_reminders: input.schedule_reminders ? 'true' : 'false',
+    notification_reminder_hour: String(Math.min(23, Math.max(0, Number(input.reminder_hour ?? 18))))
   };
   if (cleanText(input.access_token)) values.notification_access_token = cleanText(input.access_token);
   if (input.clear_token) values.notification_access_token = '';
@@ -220,6 +262,11 @@ app.post('/admin/settings/notifications/test', auth, async (_req, res) => {
     if (!result.sent) return res.status(400).json({ ok: false, error: 'Enable notifications and save a topic first' });
     res.json({ ok: true, message: 'Test notification sent' });
   } catch (error) { res.status(502).json({ ok: false, error: error.message }); }
+});
+
+app.post('/admin/settings/notifications/reminders/run', auth, async (_req, res) => {
+  try { res.json({ ok: true, ...(await runReminderAutomation(true)) }); }
+  catch (error) { res.status(502).json({ ok: false, error: error.message }); }
 });
 
 app.get('/admin/summary', auth, async (_req, res) => {
@@ -502,6 +549,8 @@ app.post('/admin/leads/:id/convert', auth, async (req, res) => {
 
 initDb().then(() => {
   app.listen(port, () => console.log(`Cumbria Window Cleaning API v1 listening on ${port}`));
+  setTimeout(() => runReminderAutomation().catch(error => console.error('Reminder automation failed:', error.message)), 10000);
+  setInterval(() => runReminderAutomation().catch(error => console.error('Reminder automation failed:', error.message)), 10 * 60 * 1000);
 }).catch((error) => {
   console.error('Failed to start API', error);
   process.exit(1);
