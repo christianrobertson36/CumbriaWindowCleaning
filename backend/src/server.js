@@ -79,6 +79,27 @@ async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 
+    CREATE TABLE IF NOT EXISTS invoices (
+      id SERIAL PRIMARY KEY,
+      invoice_number INTEGER UNIQUE NOT NULL,
+      customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+      customer_name TEXT NOT NULL DEFAULT '',
+      customer_address TEXT NOT NULL DEFAULT '',
+      customer_postcode TEXT NOT NULL DEFAULT '',
+      customer_email TEXT NOT NULL DEFAULT '',
+      invoice_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      due_date DATE,
+      reference TEXT NOT NULL DEFAULT '',
+      items JSONB NOT NULL DEFAULT '[]'::jsonb,
+      notes TEXT NOT NULL DEFAULT '',
+      subtotal NUMERIC(10,2) NOT NULL DEFAULT 0,
+      total NUMERIC(10,2) NOT NULL DEFAULT 0,
+      paid_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'Draft',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS next_clean_date DATE;
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS area TEXT NOT NULL DEFAULT '';
     ALTER TABLE jobs ADD COLUMN IF NOT EXISTS charged_at TIMESTAMPTZ;
@@ -435,14 +456,45 @@ app.get('/admin/jobs', auth, async (_req, res) => {
 });
 
 app.get('/admin/data/export', auth, async (_req, res) => {
-  const [customers, leads, jobs, payments, settings] = await Promise.all([
+  const [customers, leads, jobs, payments, invoices, settings] = await Promise.all([
     pool.query('SELECT * FROM customers ORDER BY id'),
     pool.query('SELECT * FROM leads ORDER BY id'),
     pool.query('SELECT * FROM jobs ORDER BY id'),
     pool.query('SELECT * FROM payments ORDER BY id'),
+    pool.query('SELECT * FROM invoices ORDER BY id'),
     pool.query(`SELECT setting_key,CASE WHEN setting_key='notification_access_token' THEN '[redacted]' ELSE setting_value END AS setting_value,updated_at FROM app_settings ORDER BY setting_key`)
   ]);
-  res.json({ ok: true, exported_at: new Date().toISOString(), version: 'v1', data: { customers: customers.rows, leads: leads.rows, jobs: jobs.rows, payments: payments.rows, settings: settings.rows } });
+  res.json({ ok: true, exported_at: new Date().toISOString(), version: 'v1', data: { customers: customers.rows, leads: leads.rows, jobs: jobs.rows, payments: payments.rows, invoices: invoices.rows, settings: settings.rows } });
+});
+
+app.get('/admin/invoices', auth, async (_req, res) => {
+  const result = await pool.query('SELECT * FROM invoices ORDER BY invoice_number DESC');
+  res.json({ ok: true, invoices: result.rows });
+});
+
+app.post('/admin/invoices', auth, async (req, res) => {
+  const invoice = req.body || {};
+  const items = Array.isArray(invoice.items) ? invoice.items.map(item => ({ description: cleanText(item.description), unit_cost: money(item.unit_cost), quantity: Math.max(0, money(item.quantity)) })).filter(item => item.description && item.quantity > 0) : [];
+  if (!cleanText(invoice.customer_name)) return res.status(400).json({ ok: false, error: 'Customer or company name is required' });
+  if (!items.length) return res.status(400).json({ ok: false, error: 'Add at least one invoice item' });
+  const subtotal = items.reduce((sum, item) => sum + item.unit_cost * item.quantity, 0);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT pg_advisory_xact_lock(20260718)`);
+    const numberResult = await client.query('SELECT COALESCE(MAX(invoice_number),85)+1 AS next_number FROM invoices');
+    const result = await client.query(`INSERT INTO invoices (invoice_number,customer_id,customer_name,customer_address,customer_postcode,customer_email,invoice_date,due_date,reference,items,notes,subtotal,total,paid_amount,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$12,$13,$14) RETURNING *`, [numberResult.rows[0].next_number, invoice.customer_id || null, cleanText(invoice.customer_name), cleanText(invoice.customer_address), cleanText(invoice.customer_postcode), cleanText(invoice.customer_email), invoice.invoice_date || new Date().toISOString().slice(0,10), invoice.due_date || null, cleanText(invoice.reference), JSON.stringify(items), cleanText(invoice.notes), subtotal, money(invoice.paid_amount), cleanText(invoice.status) || 'Draft']);
+    await client.query('COMMIT');
+    res.status(201).json({ ok: true, invoice: result.rows[0] });
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
+});
+
+app.patch('/admin/invoices/:id', auth, async (req, res) => {
+  const invoice = req.body || {};
+  const result = await pool.query(`UPDATE invoices SET status=COALESCE($1,status),paid_amount=COALESCE($2,paid_amount),updated_at=now() WHERE id=$3 RETURNING *`, [invoice.status || null, invoice.paid_amount === undefined ? null : money(invoice.paid_amount), req.params.id]);
+  if (!result.rows[0]) return res.status(404).json({ ok: false, error: 'Invoice not found' });
+  res.json({ ok: true, invoice: result.rows[0] });
 });
 
 app.post('/admin/jobs/schedule-notification', auth, async (req, res) => {
