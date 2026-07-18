@@ -22,7 +22,7 @@ body { background: #f7fbfd; }
   background: radial-gradient(circle at 85% 18%, rgba(40, 172, 230, .24), transparent 30%), radial-gradient(circle at 15% 100%, rgba(102, 205, 238, .18), transparent 27%), linear-gradient(135deg, #fff 0%, #eefaff 54%, #dff4fd 100%);
 }
 .hero::before { content: ''; position: absolute; width: 360px; height: 360px; top: 120px; right: 8%; border: 1px solid rgba(57,166,216,.18); border-radius: 50%; box-shadow: 0 0 0 55px rgba(67,180,224,.05), 0 0 0 110px rgba(67,180,224,.035); pointer-events: none; }
-.hero::after { content: ''; position: absolute; z-index: 0; width: min(54vw, 820px); height: 88%; right: -2%; bottom: -4%; background: url('/van.png') center / contain no-repeat; opacity: .17; mix-blend-mode: multiply; filter: saturate(.9) contrast(1.04); -webkit-mask-image: radial-gradient(ellipse at center, #000 42%, rgba(0,0,0,.82) 58%, transparent 78%); mask-image: radial-gradient(ellipse at center, #000 42%, rgba(0,0,0,.82) 58%, transparent 78%); pointer-events: none; }
+.hero::after { content: ''; position: absolute; z-index: 0; width: min(66vw, 1040px); height: 94%; right: 5%; bottom: -12%; background: url('/van.png') center / contain no-repeat; opacity: .42; filter: saturate(1.08) contrast(1.08); -webkit-mask-image: radial-gradient(ellipse at center, #000 52%, rgba(0,0,0,.9) 68%, transparent 92%); mask-image: radial-gradient(ellipse at center, #000 52%, rgba(0,0,0,.9) 68%, transparent 92%); pointer-events: none; }
 .hero { position: relative; }
 .hero > * { position: relative; z-index: 1; }
 .hero > div:first-child { max-width: 800px; }
@@ -76,7 +76,7 @@ body { background: #f7fbfd; }
   .topbar:not(.adminTopbar) { flex-direction: row; align-items: center; }
   .hero { min-height: auto; padding-top: 65px; }
   .heroCard { max-width: none; justify-self: stretch; }
-  .hero::after { width: 90%; height: 58%; right: -18%; bottom: 8%; opacity: .1; }
+  .hero::after { width: 105%; height: 64%; right: -22%; bottom: 5%; opacity: .25; }
   .cards { grid-template-columns: 1fr 1fr; }
 }
 
@@ -86,7 +86,7 @@ body { background: #f7fbfd; }
   .topbar:not(.adminTopbar) nav > a:not(.navQuote) { display: none; }
   .navQuote { padding: 10px 13px !important; font-size: 13px; }
   .hero { padding: 52px 20px 60px; }
-  .hero::after { width: 120%; height: 42%; right: -42%; bottom: 22%; opacity: .075; }
+  .hero::after { width: 135%; height: 48%; right: -48%; bottom: 18%; opacity: .18; }
   .hero h1 { font-size: 48px; }
   .heroText { font-size: 18px; }
   .heroActions { flex-direction: column; }
