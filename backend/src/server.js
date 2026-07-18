@@ -102,6 +102,7 @@ async function initDb() {
 
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS next_clean_date DATE;
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS area TEXT NOT NULL DEFAULT '';
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
     ALTER TABLE jobs ADD COLUMN IF NOT EXISTS charged_at TIMESTAMPTZ;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS follow_up_date DATE;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS quoted_amount NUMERIC(10,2) NOT NULL DEFAULT 0;
@@ -295,9 +296,9 @@ app.post('/admin/settings/notifications/reminders/run', auth, async (_req, res) 
 
 app.get('/admin/summary', auth, async (_req, res) => {
   const [customers, jobsToday, owed, leads, revenue, followUps] = await Promise.all([
-    pool.query(`SELECT COUNT(*)::int AS count FROM customers WHERE status='Active'`),
+    pool.query(`SELECT COUNT(*)::int AS count FROM customers WHERE status='Active' AND deleted_at IS NULL`),
     pool.query(`SELECT COUNT(*)::int AS count FROM jobs WHERE job_date = CURRENT_DATE AND status <> 'Cancelled'`),
-    pool.query(`SELECT COALESCE(SUM(amount_owed),0)::float AS total FROM customers`),
+    pool.query(`SELECT COALESCE(SUM(amount_owed),0)::float AS total FROM customers WHERE deleted_at IS NULL`),
     pool.query(`SELECT COUNT(*)::int AS count FROM leads WHERE status='New'`),
     pool.query(`SELECT COALESCE(SUM(amount),0)::float AS total FROM payments WHERE paid_at >= date_trunc('month', CURRENT_DATE)::date`),
     pool.query(`SELECT COUNT(*)::int AS count FROM leads WHERE follow_up_date <= CURRENT_DATE AND status NOT IN ('Won','Lost / Not interested','Existing customer')`)
@@ -316,7 +317,7 @@ app.get('/admin/summary', auth, async (_req, res) => {
 });
 
 app.get('/admin/customers', auth, async (_req, res) => {
-  const result = await pool.query('SELECT * FROM customers ORDER BY name ASC');
+  const result = await pool.query('SELECT * FROM customers WHERE deleted_at IS NULL ORDER BY name ASC');
   res.json({ ok: true, customers: result.rows });
 });
 
@@ -343,6 +344,12 @@ app.patch('/admin/customers/:id', auth, async (req, res) => {
   res.json({ ok: true, customer: result.rows[0] });
 });
 
+app.delete('/admin/customers/:id', auth, async (req, res) => {
+  const result = await pool.query(`UPDATE customers SET deleted_at=now(),status='Inactive',updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id,name`, [req.params.id]);
+  if (!result.rows[0]) return res.status(404).json({ ok: false, error: 'Customer not found' });
+  res.json({ ok: true, customer: result.rows[0], message: 'Customer deleted. Historical jobs, payments and invoices were preserved.' });
+});
+
 app.get('/admin/reports', auth, async (_req, res) => {
   const [months, totals, leadSources] = await Promise.all([
     pool.query(`WITH months AS (SELECT generate_series(date_trunc('month',CURRENT_DATE)-interval '11 months',date_trunc('month',CURRENT_DATE),interval '1 month')::date AS month)
@@ -352,8 +359,8 @@ app.get('/admin/reports', auth, async (_req, res) => {
       COALESCE((SELECT SUM(j.price) FROM jobs j WHERE date_trunc('month',j.job_date)=m.month AND j.status='Done'),0)::float AS completed_value
       FROM months m ORDER BY m.month`),
     pool.query(`SELECT
-      (SELECT COUNT(*)::int FROM customers WHERE status='Active') AS active_customers,
-      (SELECT COALESCE(SUM(amount_owed),0)::float FROM customers) AS outstanding,
+      (SELECT COUNT(*)::int FROM customers WHERE status='Active' AND deleted_at IS NULL) AS active_customers,
+      (SELECT COALESCE(SUM(amount_owed),0)::float FROM customers WHERE deleted_at IS NULL) AS outstanding,
       (SELECT COUNT(*)::int FROM leads) AS total_leads,
       (SELECT COUNT(*)::int FROM leads WHERE status IN ('Won','Existing customer')) AS won_leads,
       (SELECT COALESCE(SUM(amount),0)::float FROM payments WHERE paid_at>=CURRENT_DATE-interval '30 days') AS revenue_30_days`),
@@ -382,7 +389,7 @@ app.post('/admin/customers/import', auth, async (req, res) => {
       const email = cleanText(c.email);
       const phone = cleanText(c.phone);
       const duplicate = await client.query(
-        `SELECT id FROM customers WHERE ($1 <> '' AND lower(email)=lower($1)) OR ($2 <> '' AND regexp_replace(phone, '[^0-9]+', '', 'g')=regexp_replace($2, '[^0-9]+', '', 'g')) LIMIT 1`,
+        `SELECT id FROM customers WHERE deleted_at IS NULL AND (($1 <> '' AND lower(email)=lower($1)) OR ($2 <> '' AND regexp_replace(phone, '[^0-9]+', '', 'g')=regexp_replace($2, '[^0-9]+', '', 'g'))) LIMIT 1`,
         [email, phone]
       );
       if (duplicate.rows[0]) { skipped += 1; continue; }
@@ -441,7 +448,7 @@ app.post('/admin/payments', auth, async (req, res) => {
 app.get('/admin/contacts', auth, async (_req, res) => {
   const result = await pool.query(`
     SELECT 'customer' AS source, id, name, address, postcode, email, phone, frequency, status, amount_owed::float AS amount_owed, notes, created_at
-    FROM customers
+    FROM customers WHERE deleted_at IS NULL
     UNION ALL
     SELECT 'lead' AS source, id, name, address, postcode, email, phone, frequency, status, 0::float AS amount_owed, message AS notes, created_at
     FROM leads
@@ -580,6 +587,13 @@ app.post('/admin/jobs/generate-recurring', auth, async (req, res) => {
   res.json({ ok: true, created, through_date: throughDate });
 });
 
+app.post('/admin/leads', auth, async (req, res) => {
+  const lead = req.body || {};
+  if (!cleanText(lead.name) || !cleanText(lead.phone)) return res.status(400).json({ ok: false, error: 'Name and phone are required' });
+  const result = await pool.query(`INSERT INTO leads (name,address,postcode,email,phone,property_type,frequency,message,service,status,follow_up_date,quoted_amount) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`, [cleanText(lead.name),cleanText(lead.address),cleanText(lead.postcode),cleanText(lead.email),cleanText(lead.phone),cleanText(lead.property_type),cleanText(lead.frequency),cleanText(lead.message),cleanText(lead.service) || 'Window cleaning',cleanText(lead.status) || 'New',lead.follow_up_date || null,money(lead.quoted_amount)]);
+  res.status(201).json({ ok: true, lead: result.rows[0], message: 'Lead added successfully.' });
+});
+
 app.get('/admin/leads', auth, async (_req, res) => {
   const result = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
   res.json({ ok: true, leads: result.rows });
@@ -602,7 +616,7 @@ app.post('/admin/leads/:id/convert', auth, async (req, res) => {
 
   const existing = await pool.query(
     `SELECT * FROM customers
-     WHERE ($1 <> '' AND lower(email) = lower($1)) OR ($2 <> '' AND regexp_replace(phone, '\\s+', '', 'g') = regexp_replace($2, '\\s+', '', 'g'))
+     WHERE deleted_at IS NULL AND (($1 <> '' AND lower(email) = lower($1)) OR ($2 <> '' AND regexp_replace(phone, '\\s+', '', 'g') = regexp_replace($2, '\\s+', '', 'g')))
      ORDER BY updated_at DESC
      LIMIT 1`,
     [lead.email || '', lead.phone || '']

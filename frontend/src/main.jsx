@@ -33,7 +33,10 @@ function App() {
   const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
   const [contactFilter, setContactFilter] = useState('All');
+  const [customerSort, setCustomerSort] = useState('Name A-Z');
   const [leadFilter, setLeadFilter] = useState('Open');
+  const [showLeadForm, setShowLeadForm] = useState(false);
+  const [manualLead, setManualLead] = useState({ name: '', phone: '', email: '', address: '', postcode: '', property_type: '', service: 'Domestic window cleaning', frequency: 'Monthly', message: '', follow_up_date: '', quoted_amount: '' });
   const [paymentForm, setPaymentForm] = useState({ customer_id: '', amount: '', method: 'Bank transfer', paid_at: today, notes: '' });
   const [throughDate, setThroughDate] = useState(new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
   const [plannerDate, setPlannerDate] = useState(today);
@@ -157,6 +160,17 @@ function App() {
     } catch (e) { setError(e.message); }
   }
 
+  async function deleteCustomer(customer) {
+    const confirmed = window.confirm(`Delete ${customer.name}?\n\nThey will disappear from Customers and Contacts. Historical jobs, payments and invoices will be preserved.`);
+    if (!confirmed) return false;
+    setError(''); setNotice('');
+    try {
+      const result = await api(`/admin/customers/${customer.id}`, { method: 'DELETE', headers });
+      setCustomerHistory(current => current?.customer?.id === customer.id ? null : current);
+      setNotice(result.message); await loadAdmin(); return true;
+    } catch (e) { setError(e.message); return false; }
+  }
+
   async function importCustomers(customers) {
     setError('');
     setNotice('');
@@ -176,6 +190,15 @@ function App() {
       await loadAdmin();
       return true;
     } catch (e) { setError(e.message); return false; }
+  }
+
+  async function addManualLead(e) {
+    e.preventDefault(); setError(''); setNotice('');
+    try {
+      const result = await api('/admin/leads', { method: 'POST', headers, body: JSON.stringify(manualLead) });
+      setManualLead({ name: '', phone: '', email: '', address: '', postcode: '', property_type: '', service: 'Domestic window cleaning', frequency: 'Monthly', message: '', follow_up_date: '', quoted_amount: '' });
+      setShowLeadForm(false); setNotice(result.message || 'Lead added successfully.'); await loadAdmin();
+    } catch (e) { setError(e.message); }
   }
 
   async function openCustomer(id) {
@@ -388,7 +411,7 @@ function App() {
         {!token ? <form className="login" onSubmit={doLogin}><input value={login.email} onChange={e => setLogin({ ...login, email: e.target.value })} /><input type="password" placeholder="Password" value={login.password} onChange={e => setLogin({ ...login, password: e.target.value })} /><button className="button">Login</button></form> : <>
           <div className="adminSearch"><input type="search" aria-label="Search all customers, contacts and leads" placeholder="Search customers, contacts and leads..." value={search} onChange={e => setSearch(e.target.value)} />{search && <button className="small" onClick={() => setSearch('')}>Clear</button>}</div>
           <div className="adminTools"><button className="small" onClick={exportCsv}>Export contacts CSV</button></div>
-          <div className="tabs">{['dashboard','today','customers','planner','payments','invoices','leads','contacts','reports','settings'].map(t => <button className={tab === t ? 'active' : ''} onClick={() => setTab(t)} key={t}>{t}</button>)}</div>
+          <div className="adminShell"><aside className="tabs">{[['dashboard','Dashboard','⌂'],['today','Today','✓'],['customers','Customers','♙'],['planner','Planner','▦'],['payments','Payments','£'],['invoices','Invoices','▤'],['leads','Leads','✦'],['contacts','Contacts','◎'],['reports','Reports','▥'],['settings','Settings','⚙']].map(([key,label,icon]) => <button className={tab === key ? 'active' : ''} onClick={() => { setTab(key); setSearch(''); }} key={key}><span>{icon}</span>{label}</button>)}</aside><div className="adminContent">
           {search ? <section className="searchResults"><div className="listHeading"><h3>Search results</h3><span>{searchResults.length} found</span></div><ContactList contacts={searchResults} empty="No matching customers, contacts or leads." /></section> : <>
           {tab === 'dashboard' && <div className="stats">
             <Stat title="Active customers" value={summary?.active_customers ?? 0} />
@@ -400,14 +423,14 @@ function App() {
           </div>}
           {tab === 'today' && <><div className="listHeading"><h3>Today's round</h3><span>{jobs.filter(j => j.job_date?.slice(0,10) === today).length} jobs</span></div><JobList jobs={jobs.filter(j => j.job_date?.slice(0,10) === today)} updateJob={updateJob} empty="No jobs planned for today." /></>}
           {tab === 'contacts' && <><CustomerImport onImport={importCustomers} /><CustomerForm form={customerForm} setForm={setCustomerForm} onSubmit={addCustomer} /><ContactFilters value={contactFilter} onChange={setContactFilter} /><ContactList contacts={filterContacts(contacts, contactFilter)} empty="No contacts match this filter." /></>}
-          {tab === 'customers' && <>{customerHistory && <CustomerHistory data={customerHistory} close={() => setCustomerHistory(null)} setPayment={setPaymentForm} goPayments={() => setTab('payments')} />}<CustomerForm form={customerForm} setForm={setCustomerForm} onSubmit={addCustomer} /><CustomerList customers={customers} saveCustomer={saveCustomer} openCustomer={openCustomer} /></>}
+          {tab === 'customers' && <>{customerHistory && <CustomerHistory data={customerHistory} close={() => setCustomerHistory(null)} setPayment={setPaymentForm} goPayments={() => setTab('payments')} />}<CustomerForm form={customerForm} setForm={setCustomerForm} onSubmit={addCustomer} /><div className="customerToolbar"><div><h3>Customer records</h3><span>{customers.length} customers</span></div><label>Sort by<select value={customerSort} onChange={e => setCustomerSort(e.target.value)}><option>Name A-Z</option><option>Name Z-A</option><option>Highest balance</option><option>Next clean</option><option>Area</option><option>Newest first</option></select></label></div><CustomerList customers={sortCustomers(customers, customerSort)} saveCustomer={saveCustomer} deleteCustomer={deleteCustomer} openCustomer={openCustomer} /></>}
           {tab === 'planner' && <PlannerWorkspace jobs={jobs} customers={customers} jobForm={jobForm} setJobForm={setJobForm} addJob={addJob} updateJob={updateJob} selectedDate={plannerDate} setSelectedDate={setPlannerDate} throughDate={throughDate} setThroughDate={setThroughDate} generateRecurring={generateRecurring} sendScheduleNotification={sendScheduleNotification} />}
           {tab === 'payments' && <><PaymentForm form={paymentForm} setForm={setPaymentForm} customers={customers} onSubmit={addPayment} /><OutstandingBalances customers={customers} setPaymentForm={setPaymentForm} openCustomer={openCustomer} setTab={setTab} /><PaymentList payments={payments} /></>}
           {tab === 'invoices' && <InvoiceWorkspace customers={customers} invoices={invoices} form={invoiceForm} setForm={setInvoiceForm} createInvoice={createInvoice} selected={selectedInvoice} setSelected={setSelectedInvoice} updateInvoice={updateInvoice} />}
-          {tab === 'leads' && <><LeadFilters value={leadFilter} onChange={setLeadFilter} /><LeadList leads={filterLeads(leads, leadFilter)} updateLeadStatus={updateLeadStatus} saveLead={saveLead} convertLead={convertLead} leadMatch={leadMatch} /></>}
+          {tab === 'leads' && <><div className="leadToolbar"><div><h3>Lead enquiries</h3><span>{leads.length} total leads</span></div><button onClick={() => setShowLeadForm(value => !value)}>{showLeadForm ? 'Close form' : '+ Add lead'}</button></div>{showLeadForm && <ManualLeadForm form={manualLead} setForm={setManualLead} onSubmit={addManualLead} />}<LeadFilters value={leadFilter} onChange={setLeadFilter} /><LeadList leads={filterLeads(leads, leadFilter)} updateLeadStatus={updateLeadStatus} saveLead={saveLead} convertLead={convertLead} leadMatch={leadMatch} /></>}
           {tab === 'reports' && <Reports data={reports} />}
           {tab === 'settings' && <><NotificationSettings form={notificationForm} setForm={setNotificationForm} onSubmit={saveNotificationSettings} onTest={testNotification} onRunReminders={runReminders} /><DataTools downloadBackup={downloadBackup} exportCsv={exportCsv} /></>}
-          </>}
+          </>}</div></div>
         </>}
       </section>}
     </main>
@@ -429,6 +452,15 @@ function filterLeads(leads, filter) {
   if (filter === 'Won') return leads.filter(l => l.status === 'Won' || l.status === 'Existing customer');
   if (filter === 'Lost') return leads.filter(l => l.status === 'Lost / Not interested');
   return leads;
+}
+function sortCustomers(customers, sort) {
+  const sorted = [...customers];
+  if (sort === 'Name Z-A') return sorted.sort((a,b) => String(b.name).localeCompare(String(a.name)));
+  if (sort === 'Highest balance') return sorted.sort((a,b) => Number(b.amount_owed) - Number(a.amount_owed));
+  if (sort === 'Next clean') return sorted.sort((a,b) => String(a.next_clean_date || '9999').localeCompare(String(b.next_clean_date || '9999')));
+  if (sort === 'Area') return sorted.sort((a,b) => String(a.area || 'zzzz').localeCompare(String(b.area || 'zzzz')) || String(a.name).localeCompare(String(b.name)));
+  if (sort === 'Newest first') return sorted.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  return sorted.sort((a,b) => String(a.name).localeCompare(String(b.name)));
 }
 function Stat({ title, value }) { return <div className="stat"><span>{title}</span><strong>{value}</strong></div>; }
 function Field({ form, setForm, name, placeholder, type = 'text' }) { return <input type={type} placeholder={placeholder} value={form[name] ?? ''} onChange={e => setForm({ ...form, [name]: e.target.value })} />; }
@@ -465,13 +497,13 @@ function CustomerImport({ onImport }) {
   }
   return <section className="csvImport"><div><strong>Import customer contacts</strong><p>Upload a CSV with customer details, price and Weekly or Monthly frequency. Existing matching email addresses or phone numbers are skipped.</p></div><div className="csvActions"><button type="button" className="small" onClick={downloadTemplate}>Download CSV template</button><label className="fileButton">Choose CSV<input type="file" accept=".csv,text/csv" onChange={chooseFile} /></label>{rows.length > 0 && <button type="button" onClick={() => onImport(rows)}>Import {rows.length} customer{rows.length === 1 ? '' : 's'}</button>}</div>{fileName && <span className="csvFile">{fileName}{rows.length ? ` · ${rows.length} rows ready` : ''}</span>}{localError && <p className="error">{localError}</p>}</section>;
 }
-function CustomerList({ customers, saveCustomer, openCustomer }) { return <div className="tableList">{customers.map(c => <CustomerRow key={c.id} c={c} saveCustomer={saveCustomer} openCustomer={openCustomer} />)}</div>; }
-function CustomerRow({ c, saveCustomer, openCustomer }) {
+function CustomerList({ customers, saveCustomer, deleteCustomer, openCustomer }) { return <div className="tableList">{customers.map(c => <CustomerRow key={c.id} c={c} saveCustomer={saveCustomer} deleteCustomer={deleteCustomer} openCustomer={openCustomer} />)}</div>; }
+function CustomerRow({ c, saveCustomer, deleteCustomer, openCustomer }) {
   const [editing, setEditing] = useState(false);
   const [edit, setEdit] = useState(c);
   useEffect(() => setEdit(c), [c]);
-  if (editing) return <article className="customerEditor"><div className="formGrid"><Field form={edit} setForm={setEdit} name="name" placeholder="Name" /><Field form={edit} setForm={setEdit} name="phone" placeholder="Phone" /><Field form={edit} setForm={setEdit} name="email" placeholder="Email" /><Field form={edit} setForm={setEdit} name="address" placeholder="Address" /><Field form={edit} setForm={setEdit} name="postcode" placeholder="Postcode" /><Field form={edit} setForm={setEdit} name="area" placeholder="Round / area" /><Field form={edit} setForm={setEdit} name="clean_price" placeholder="Clean price" type="number" /><Field form={edit} setForm={setEdit} name="frequency" placeholder="Frequency" /><Field form={edit} setForm={setEdit} name="next_clean_date" placeholder="Next clean" type="date" /><Field form={edit} setForm={setEdit} name="amount_owed" placeholder="Amount owed" type="number" /><Field form={edit} setForm={setEdit} name="access_notes" placeholder="Access notes" /><Field form={edit} setForm={setEdit} name="notes" placeholder="Notes" /><select aria-label="Customer status" value={edit.status || 'Active'} onChange={e => setEdit({ ...edit, status: e.target.value })}><option>Active</option><option>Paused</option><option>Inactive</option></select></div><div className="editorActions"><button onClick={async () => { if (await saveCustomer(edit)) setEditing(false); }}>Save customer</button><button className="small" onClick={() => { setEdit(c); setEditing(false); }}>Cancel</button></div></article>;
-  return <article className="row"><div><strong>{c.name}</strong><span>{c.address} {c.postcode}</span><span>{c.phone} {c.email}</span><span>{c.area && `${c.area} · `}{c.frequency}{c.next_clean_date && ` · Next ${c.next_clean_date.slice(0,10)}`}</span>{c.notes && <span>{c.notes}</span>}</div><StatusBadge value={c.status} /><b>{Number(c.amount_owed) > 0 ? `£${Number(c.amount_owed).toFixed(2)}` : ''}</b><div className="compactActions"><button onClick={() => openCustomer?.(c.id)}>History</button><button className="small" onClick={() => setEditing(true)}>Edit</button></div></article>;
+  if (editing) return <article className="customerEditor"><div className="customerEditHeading"><div><p className="eyebrow">Full customer record</p><h3>Edit {c.name}</h3></div><StatusBadge value={edit.status} /></div><div className="formGrid"><Field form={edit} setForm={setEdit} name="name" placeholder="Name" /><Field form={edit} setForm={setEdit} name="phone" placeholder="Phone" /><Field form={edit} setForm={setEdit} name="email" placeholder="Email" /><Field form={edit} setForm={setEdit} name="address" placeholder="Address" /><Field form={edit} setForm={setEdit} name="postcode" placeholder="Postcode" /><Field form={edit} setForm={setEdit} name="area" placeholder="Round / area" /><Field form={edit} setForm={setEdit} name="clean_price" placeholder="Clean price" type="number" /><Field form={edit} setForm={setEdit} name="frequency" placeholder="Frequency" /><Field form={edit} setForm={setEdit} name="next_clean_date" placeholder="Next clean" type="date" /><Field form={edit} setForm={setEdit} name="amount_owed" placeholder="Amount owed" type="number" /><Field form={edit} setForm={setEdit} name="access_notes" placeholder="Access notes" /><Field form={edit} setForm={setEdit} name="notes" placeholder="Notes" /><label className="editStatus">Status<select aria-label="Customer status" value={edit.status || 'Active'} onChange={e => setEdit({ ...edit, status: e.target.value })}><option>Active</option><option>Paused</option><option>Inactive</option></select></label></div><div className="editorActions"><button onClick={async () => { if (await saveCustomer(edit)) setEditing(false); }}>Save customer</button><button className="small" onClick={() => { setEdit(c); setEditing(false); }}>Cancel</button><button className="deleteCustomer" onClick={() => deleteCustomer(c)}>Delete customer</button></div><p className="deleteHint">Deleting removes this customer from active lists but preserves historical jobs, payments and invoices.</p></article>;
+  return <article className="row"><div><strong>{c.name}</strong><span>{c.address} {c.postcode}</span><span>{c.phone} {c.email}</span><span>{c.area && `${c.area} · `}{c.frequency}{c.next_clean_date && ` · Next ${c.next_clean_date.slice(0,10)}`}</span>{c.notes && <span>{c.notes}</span>}</div><StatusBadge value={c.status} /><b>{Number(c.amount_owed) > 0 ? `£${Number(c.amount_owed).toFixed(2)}` : ''}</b><div className="compactActions"><button onClick={() => openCustomer?.(c.id)}>History</button><button className="small" onClick={() => setEditing(true)}>Edit</button><button className="deleteCustomer small" onClick={() => deleteCustomer(c)}>Delete</button></div></article>;
 }
 function PlannerWorkspace({ jobs, customers, jobForm, setJobForm, addJob, updateJob, selectedDate, setSelectedDate, throughDate, setThroughDate, generateRecurring, sendScheduleNotification }) {
   const [month, setMonth] = useState(selectedDate.slice(0, 7));
@@ -531,6 +563,7 @@ function InvoiceDocument({ invoice, close, updateInvoice }) {
   const emailBody = encodeURIComponent(`Hello ${invoice.customer_name},\n\nPlease find invoice ${String(invoice.invoice_number).padStart(6,'0')} for £${Number(invoice.total).toFixed(2)}. The balance due is £${balance.toFixed(2)}${invoice.due_date ? ` by ${new Date(`${invoice.due_date.slice(0,10)}T12:00:00`).toLocaleDateString('en-GB')}` : ''}.\n\nThank you,\nCumbria Window Cleaning`);
   return <section className="invoiceDocument printableInvoice"><div className="invoiceTop"><span className="invoiceLogo"></span><div><a href="mailto:Melon74@hotmail.com">Melon74@hotmail.com</a><span>07938692028</span></div><address>73 Newlands Gardens<br />Workington CA14 3PG<br />United Kingdom</address></div><h2>INVOICE</h2><div className="invoiceSummary"><dl><dt>Invoice Number</dt><dd>{String(invoice.invoice_number).padStart(6,'0')}</dd><dt>Invoice Date</dt><dd>{new Date(`${invoice.invoice_date.slice(0,10)}T12:00:00`).toLocaleDateString('en-GB')}</dd>{invoice.due_date && <><dt>Due Date</dt><dd>{new Date(`${invoice.due_date.slice(0,10)}T12:00:00`).toLocaleDateString('en-GB')}</dd></>}<dt>Invoice Total</dt><dd>£{Number(invoice.total).toFixed(2)}</dd><dt>Balance Due</dt><dd>£{balance.toFixed(2)}</dd></dl><div><strong>{invoice.customer_name}</strong><span>{invoice.customer_address}</span><span>{invoice.customer_postcode}</span><span>United Kingdom</span><span>{invoice.customer_email}</span>{invoice.reference && <span>Reference: {invoice.reference}</span>}</div></div><table className="invoiceTable"><thead><tr><th>Item</th><th>Description</th><th>Unit Cost</th><th>Quantity</th><th>Line Total</th></tr></thead><tbody>{items.map((item, index) => <tr key={index}><td>{index + 1}</td><td>{item.description}</td><td>£{Number(item.unit_cost).toFixed(2)}</td><td>{item.quantity}</td><td>£{(Number(item.unit_cost) * Number(item.quantity)).toFixed(2)}</td></tr>)}</tbody></table><div className="invoiceBottom"><div>{invoice.notes && <p>{invoice.notes}</p>}<p><strong>Payment details</strong><br />Please contact Cumbria Window Cleaning if you need payment information or have a query about this invoice.</p></div><dl><dt>Net</dt><dd>£{Number(invoice.subtotal).toFixed(2)}</dd><dt>Subtotal</dt><dd>£{Number(invoice.subtotal).toFixed(2)}</dd><dt>Total</dt><dd>£{Number(invoice.total).toFixed(2)}</dd><dt>Paid to Date</dt><dd>£{Number(invoice.paid_amount || 0).toFixed(2)}</dd><dt>Balance Due</dt><dd>£{balance.toFixed(2)}</dd></dl></div><div className="invoiceActions noPrint"><button onClick={() => window.print()}>Print / save PDF</button>{invoice.customer_email && <a className="actionLink" href={`mailto:${invoice.customer_email}?subject=${emailSubject}&body=${emailBody}`}>Email details</a>}<button className="small" onClick={() => updateInvoice(invoice, { status: 'Sent' })}>Mark sent</button><button className="small" onClick={() => updateInvoice(invoice, { status: 'Paid', paid_amount: invoice.total })}>Mark paid</button><button className="small" onClick={close}>Close</button></div></section>;
 }
+function ManualLeadForm({ form, setForm, onSubmit }) { return <form className="manualLeadForm" onSubmit={onSubmit}><div><p className="eyebrow">Manual enquiry</p><h3>Add a new lead</h3></div><input required placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /><input required placeholder="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /><input placeholder="Email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /><input placeholder="Address" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /><input placeholder="Postcode" value={form.postcode} onChange={e => setForm({ ...form, postcode: e.target.value })} /><select value={form.service} onChange={e => setForm({ ...form, service: e.target.value })}><option>Domestic window cleaning</option><option>Commercial window cleaning</option><option>Regular cleaning round</option><option>Carpet cleaning</option><option>Conservatory cleaning</option><option>Fascias and extras</option><option>Other / not sure</option></select><select value={form.frequency} onChange={e => setForm({ ...form, frequency: e.target.value })}><option>Monthly</option><option>Weekly</option><option>Fortnightly</option><option>One-off</option><option>Commercial quote</option><option>Not sure</option></select><input placeholder="Property type" value={form.property_type} onChange={e => setForm({ ...form, property_type: e.target.value })} /><label>Follow-up date<input type="date" value={form.follow_up_date} onChange={e => setForm({ ...form, follow_up_date: e.target.value })} /></label><label>Initial quote £<input min="0" step="0.01" type="number" value={form.quoted_amount} onChange={e => setForm({ ...form, quoted_amount: e.target.value })} /></label><textarea placeholder="Notes / message" value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} /><button>Add lead</button></form>; }
 function LeadList({ leads, updateLeadStatus, saveLead, convertLead, leadMatch }) { return <div className="tableList">{leads.length ? leads.map(l => <LeadRow key={l.id} lead={l} updateLeadStatus={updateLeadStatus} saveLead={saveLead} convertLead={convertLead} match={leadMatch(l)} />) : <p className="emptyState">No leads match this filter.</p>}</div>; }
 function LeadRow({ lead, updateLeadStatus, saveLead, convertLead, match }) {
   const [edit, setEdit] = useState(lead); const [showQuote, setShowQuote] = useState(false);
