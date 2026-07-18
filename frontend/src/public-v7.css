@@ -17,24 +17,25 @@ body { background: #f7fbfd; }
 .navQuote:hover { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(15, 128, 188, .3); }
 
 .hero {
-  min-height: 650px;
-  padding: 90px max(6vw, 24px);
+  grid-template-columns: minmax(0, 1.15fr) minmax(260px, .7fr) minmax(260px, .75fr);
+  gap: clamp(22px, 3vw, 48px);
+  min-height: 510px;
+  padding: 58px max(4vw, 24px);
   background: radial-gradient(circle at 85% 18%, rgba(40, 172, 230, .24), transparent 30%), radial-gradient(circle at 15% 100%, rgba(102, 205, 238, .18), transparent 27%), linear-gradient(135deg, #fff 0%, #eefaff 54%, #dff4fd 100%);
 }
 .hero::before { content: ''; position: absolute; width: 360px; height: 360px; top: 120px; right: 8%; border: 1px solid rgba(57,166,216,.18); border-radius: 50%; box-shadow: 0 0 0 55px rgba(67,180,224,.05), 0 0 0 110px rgba(67,180,224,.035); pointer-events: none; }
 .hero::after { content: ''; position: absolute; width: 360px; height: 360px; right: 7%; bottom: -170px; border-radius: 50%; background: rgba(45, 166, 218, .09); pointer-events: none; }
 .hero { position: relative; }
 .hero > * { position: relative; z-index: 1; }
-.hero > div:first-child { max-width: 800px; }
-.hero h1 { max-width: 760px; font-size: clamp(48px, 6.4vw, 82px); letter-spacing: -.045em; line-height: .98; }
+.hero > div:first-child { max-width: 720px; }
+.hero h1 { max-width: 700px; font-size: clamp(44px, 5vw, 68px); letter-spacing: -.045em; line-height: .98; }
 .heroText { max-width: 680px; margin: 24px 0 0; color: #466478; font-size: clamp(18px, 2vw, 22px); }
 .primaryCta, .quoteSubmit { background: linear-gradient(135deg, #168fce, #0875b2); box-shadow: 0 16px 32px rgba(8, 117, 178, .28); }
 .primaryCta:hover, .quoteSubmit:hover { transform: translateY(-2px); box-shadow: 0 20px 38px rgba(8, 117, 178, .34); }
 .primaryCta span, .quoteSubmit span, .heroCard a span { margin-left: 7px; }
 .trustRow { display: flex; gap: 10px 22px; flex-wrap: wrap; margin-top: 28px; color: #365b70; font-size: 14px; font-weight: 800; }
-.heroAside { position: relative; display: flex; min-width: 0; flex-direction: column; align-items: flex-end; align-self: stretch; justify-content: center; }
-.heroCard { position: relative; z-index: 2; max-width: 420px; padding: 32px; overflow: hidden; border-color: rgba(255,255,255,.8); background: rgba(255,255,255,.94); backdrop-filter: blur(16px); }
-.heroVan { display: block; z-index: 1; width: min(650px, 130%); max-width: none; margin: -24px -5% -70px 0; border-radius: 48% 48% 22% 22%; mix-blend-mode: multiply; filter: saturate(1.08) contrast(1.08); }
+.heroCard { position: relative; z-index: 2; width: 100%; max-width: 390px; align-self: center; padding: 28px; overflow: hidden; border-color: rgba(255,255,255,.8); background: rgba(255,255,255,.94); backdrop-filter: blur(16px); }
+.heroVan { display: block; z-index: 1; width: 145%; max-width: none; align-self: center; margin-left: -32%; filter: saturate(1.05) drop-shadow(0 22px 22px rgba(18,75,112,.2)); }
 .heroCard::after { content: ''; position: absolute; width: 150px; height: 150px; right: -55px; bottom: -65px; border-radius: 50%; background: #d9f3ff; }
 .heroCardLabel { display: inline-block; margin-bottom: 18px; padding: 7px 11px; border-radius: 999px; color: #0875b2; background: #e6f7ff; font-size: 12px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .heroCard h3 { font-size: clamp(28px, 3vw, 38px); line-height: 1.05; }
@@ -109,10 +110,10 @@ body { background: #f7fbfd; }
 
 @media (max-width: 900px) {
   .topbar:not(.adminTopbar) { flex-direction: row; align-items: center; }
-  .hero { min-height: auto; padding-top: 65px; }
+  .hero { grid-template-columns: 1fr 1fr; min-height: auto; padding-top: 65px; }
+  .hero > div:first-child { grid-column: 1 / -1; }
   .heroCard { max-width: none; justify-self: stretch; }
-  .heroAside { align-items: center; }
-  .heroVan { width: min(680px, 100%); margin: -10px auto -30px; }
+  .heroVan { width: 115%; margin: 0 0 0 -15%; }
   .cards { grid-template-columns: 1fr 1fr; }
   .whyGrid { grid-template-columns: 1fr 1fr; }
   .coverageSection { margin: 0 20px 70px; }
@@ -129,13 +130,15 @@ body { background: #f7fbfd; }
   .topbar:not(.adminTopbar) nav > a:not(.navQuote) { display: none; }
   .navQuote { padding: 10px 13px !important; font-size: 13px; }
   .hero { padding: 52px 20px 60px; }
+  .hero { grid-template-columns: 1fr; }
+  .hero > div:first-child { grid-column: auto; }
   .hero h1 { font-size: 48px; }
   .heroText { font-size: 18px; }
   .heroActions { flex-direction: column; }
   .heroActions .button { width: 100%; text-align: center; }
   .trustRow { display: grid; }
   .heroCard { padding: 28px; }
-  .heroVan { width: 115%; margin: 4px -7.5% -22px; }
+  .heroVan { width: 108%; margin: -18px -4% -32px; }
   .cards { grid-template-columns: 1fr; padding: 0; }
   .card { min-height: 0; }
   .serviceImage { height: 230px; }

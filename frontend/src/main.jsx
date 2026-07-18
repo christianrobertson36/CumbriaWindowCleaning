@@ -245,7 +245,6 @@ function App() {
           <div className="heroActions"><a className="button primaryCta" href="#quote">Get my free quote <span>→</span></a><a className="button ghost" href="#services">Explore services</a></div>
           <div className="trustRow"><span>✓ Fully insured</span><span>✓ Easy quote requests</span><span>✓ Regular or one-off cleans</span><span>✓ Homes, shops and offices</span></div>
         </div>
-        <div className="heroAside">
         <div className="heroCard">
           <span className="heroCardLabel">Now taking enquiries</span>
           <h3>Window cleaning that fits around you.</h3>
@@ -253,8 +252,7 @@ function App() {
           <ul><li>Domestic properties</li><li>Commercial premises</li><li>Regular cleaning rounds</li><li>One-off cleans and extras</li></ul>
           <a href="#quote">Check availability <span>→</span></a>
         </div>
-        <img className="heroVan" src="/van.png" alt="Cumbria Window Cleaning van" />
-        </div>
+        <img className="heroVan" src="/van-branded.png" alt="Cumbria Window Cleaning van" />
       </section>
 
       <section id="services" className="servicesSection">
