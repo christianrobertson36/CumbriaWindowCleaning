@@ -363,6 +363,17 @@ app.get('/admin/jobs', auth, async (_req, res) => {
   res.json({ ok: true, jobs: result.rows });
 });
 
+app.get('/admin/data/export', auth, async (_req, res) => {
+  const [customers, leads, jobs, payments, settings] = await Promise.all([
+    pool.query('SELECT * FROM customers ORDER BY id'),
+    pool.query('SELECT * FROM leads ORDER BY id'),
+    pool.query('SELECT * FROM jobs ORDER BY id'),
+    pool.query('SELECT * FROM payments ORDER BY id'),
+    pool.query(`SELECT setting_key,CASE WHEN setting_key='notification_access_token' THEN '[redacted]' ELSE setting_value END AS setting_value,updated_at FROM app_settings ORDER BY setting_key`)
+  ]);
+  res.json({ ok: true, exported_at: new Date().toISOString(), version: 'v1', data: { customers: customers.rows, leads: leads.rows, jobs: jobs.rows, payments: payments.rows, settings: settings.rows } });
+});
+
 app.post('/admin/jobs/schedule-notification', auth, async (req, res) => {
   const date = cleanText(req.body?.date) || new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ ok: false, error: 'Enter a valid schedule date' });

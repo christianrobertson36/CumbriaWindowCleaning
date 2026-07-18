@@ -129,8 +129,13 @@ function App() {
   }
 
   async function updateJob(job, status) {
-    await api(`/admin/jobs/${job.id}`, { method: 'PATCH', headers, body: JSON.stringify({ ...job, status }) });
-    await loadAdmin();
+    setError(''); setNotice('');
+    try {
+      await api(`/admin/jobs/${job.id}`, { method: 'PATCH', headers, body: JSON.stringify({ ...job, status }) });
+      setNotice(status === 'Cancelled' ? 'Job cancelled.' : status === 'Planned' ? 'Job reopened.' : status === 'Done' ? 'Job completed and balance updated.' : 'Job saved.');
+      await loadAdmin();
+      return true;
+    } catch (e) { setError(e.message); return false; }
   }
 
   async function updateLeadStatus(id, status) {
@@ -222,6 +227,18 @@ function App() {
     link.download = `cwc-contacts-${today}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
+  }
+
+  async function downloadBackup() {
+    setError('');
+    try {
+      const backup = await api('/admin/data/export', { headers });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
+      link.download = `cwc-full-backup-${today}.json`;
+      link.click(); URL.revokeObjectURL(link.href);
+      setNotice('Full data backup downloaded. Keep it somewhere secure.');
+    } catch (e) { setError(e.message); }
   }
 
   async function convertLead(id) {
@@ -355,7 +372,7 @@ function App() {
           {tab === 'planner' && <PlannerWorkspace jobs={jobs} customers={customers} jobForm={jobForm} setJobForm={setJobForm} addJob={addJob} updateJob={updateJob} selectedDate={plannerDate} setSelectedDate={setPlannerDate} throughDate={throughDate} setThroughDate={setThroughDate} generateRecurring={generateRecurring} sendScheduleNotification={sendScheduleNotification} />}
           {tab === 'payments' && <><PaymentForm form={paymentForm} setForm={setPaymentForm} customers={customers} onSubmit={addPayment} /><PaymentList payments={payments} /><h3>Outstanding balances</h3><MoneyList customers={customers} saveCustomer={saveCustomer} openCustomer={openCustomer} /></>}
           {tab === 'leads' && <><LeadFilters value={leadFilter} onChange={setLeadFilter} /><LeadList leads={filterLeads(leads, leadFilter)} updateLeadStatus={updateLeadStatus} saveLead={saveLead} convertLead={convertLead} leadMatch={leadMatch} /></>}
-          {tab === 'settings' && <NotificationSettings form={notificationForm} setForm={setNotificationForm} onSubmit={saveNotificationSettings} onTest={testNotification} />}
+          {tab === 'settings' && <><NotificationSettings form={notificationForm} setForm={setNotificationForm} onSubmit={saveNotificationSettings} onTest={testNotification} /><DataTools downloadBackup={downloadBackup} exportCsv={exportCsv} /></>}
           </>}
         </>}
       </section>}
@@ -448,7 +465,14 @@ function MonthCalendar({ month, jobs, selectedDate, chooseDate, previous, next }
 function RoundSheet({ jobs, updateJob, date }) {
   const groups = Object.groupBy ? Object.groupBy(jobs, job => job.area || 'Unassigned area') : jobs.reduce((all, job) => ({ ...all, [job.area || 'Unassigned area']: [...(all[job.area || 'Unassigned area'] || []), job] }), {});
   if (!jobs.length) return <p className="emptyState">No jobs match this date and filter.</p>;
-  return <div className="dailySheet"><div className="printHeading"><h2>Cumbria Window Cleaning</h2><p>Work sheet · {date}</p></div>{Object.entries(groups).map(([group, groupJobs]) => <section className="areaGroup" key={group}><h4>{group}<span>{groupJobs.length} jobs</span></h4>{groupJobs.map((job, index) => <article className="roundJob" key={job.id}><b>{index + 1}</b><div><strong>{job.customer_name}</strong><span>{job.address} {job.postcode}</span><span>{job.phone}{job.notes ? ` · ${job.notes}` : ''}</span></div><span>£{Number(job.price || 0).toFixed(2)}</span><StatusBadge value={job.status} /><div className="compactActions"><button onClick={() => updateJob(job, 'Done')}>Done</button><button className="small" onClick={() => updateJob(job, 'Skipped')}>Skip</button></div></article>)}</section>)}</div>;
+  return <div className="dailySheet"><div className="printHeading"><h2>Cumbria Window Cleaning</h2><p>Work sheet · {date}</p></div>{Object.entries(groups).map(([group, groupJobs]) => <section className="areaGroup" key={group}><h4>{group}<span>{groupJobs.length} jobs</span></h4>{groupJobs.map((job, index) => <RoundJob key={job.id} job={job} index={index} updateJob={updateJob} />)}</section>)}</div>;
+}
+function RoundJob({ job, index, updateJob }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(job);
+  useEffect(() => setDraft(job), [job]);
+  if (editing) return <article className="roundJob roundJobEditor"><b>{index + 1}</b><div><strong>{job.customer_name}</strong><input aria-label="Job notes" placeholder="Job notes" value={draft.notes || ''} onChange={e => setDraft({ ...draft, notes: e.target.value })} /></div><label>Date<input type="date" value={draft.job_date?.slice(0,10) || ''} onChange={e => setDraft({ ...draft, job_date: e.target.value })} /></label><label>Price<input type="number" step="0.01" value={draft.price || 0} onChange={e => setDraft({ ...draft, price: e.target.value })} /></label><select aria-label="Job status" value={draft.status || 'Planned'} onChange={e => setDraft({ ...draft, status: e.target.value })}><option>Planned</option><option>Done</option><option>Skipped</option><option>Cancelled</option></select><div className="compactActions"><button onClick={async () => { if (await updateJob(draft, draft.status)) setEditing(false); }}>Save</button><button className="small" onClick={() => { setDraft(job); setEditing(false); }}>Cancel</button></div></article>;
+  return <article className="roundJob"><b>{index + 1}</b><div><strong>{job.customer_name}</strong><span>{job.address} {job.postcode}</span><span>{job.phone}{job.notes ? ` · ${job.notes}` : ''}</span></div><span>£{Number(job.price || 0).toFixed(2)}</span><StatusBadge value={job.status} /><div className="compactActions"><button onClick={() => updateJob(job, 'Done')}>Done</button><button className="small" onClick={() => setEditing(true)}>Edit</button><button className="small" onClick={() => updateJob(job, job.status === 'Cancelled' ? 'Planned' : 'Cancelled')}>{job.status === 'Cancelled' ? 'Reopen' : 'Cancel'}</button></div></article>;
 }
 function JobList({ jobs, updateJob, empty = 'No jobs found.' }) { return <div className="tableList">{jobs.length ? jobs.map(j => <article className="row" key={j.id}><div><strong>{j.job_date?.slice(0,10)} · {j.customer_name}</strong><span>{j.address}</span><span>{j.notes}</span></div><StatusBadge value={j.status} /><b>£{Number(j.price || 0).toFixed(2)}</b><div className="compactActions"><button onClick={() => updateJob(j, 'Done')}>Done</button><button className="small" onClick={() => updateJob(j, 'Skipped')}>Skip</button></div></article>) : <p className="emptyState">{empty}</p>}</div>; }
 function MoneyList({ customers, saveCustomer, openCustomer }) { return <div className="tableList">{customers.filter(c => Number(c.amount_owed) > 0).map(c => <CustomerRow key={c.id} c={c} saveCustomer={saveCustomer} openCustomer={openCustomer} />)}</div>; }
@@ -459,6 +483,7 @@ function PaymentForm({ form, setForm, customers, onSubmit }) { return <form clas
 function PaymentList({ payments }) { return <div className="tableList">{payments.length ? payments.map(p => <article className="row" key={p.id}><div><strong>{p.customer_name}</strong><span>{p.paid_at?.slice(0,10)} · {p.method}</span><span>{p.notes}</span></div><b className="paidAmount">+£{Number(p.amount).toFixed(2)}</b></article>) : <p className="emptyState">No payments recorded yet.</p>}</div>; }
 function CustomerHistory({ data, close, setPayment, goPayments }) { const { customer, jobs, payments } = data; return <section className="historyPanel"><div className="listHeading"><div><p className="eyebrow">Customer record</p><h3>{customer.name}</h3></div><button className="small" onClick={close}>Close</button></div><div className="historySummary"><span>Balance <strong>£{Number(customer.amount_owed).toFixed(2)}</strong></span><span>Jobs <strong>{jobs.length}</strong></span><span>Payments <strong>{payments.length}</strong></span></div><div className="contactActions">{customer.phone && <a className="actionLink" href={`tel:${customer.phone}`}>Call</a>}{customer.email && <a className="actionLink" href={`mailto:${customer.email}`}>Email</a>}<button onClick={() => { setPayment(form => ({ ...form, customer_id: customer.id, amount: customer.amount_owed || '' })); goPayments(); }}>Record payment</button></div><div className="historyColumns"><div><h4>Job history</h4>{jobs.slice(0,10).map(j => <p key={j.id}><strong>{j.job_date?.slice(0,10)}</strong> · {j.status} · £{Number(j.price).toFixed(2)}</p>)}</div><div><h4>Payment history</h4>{payments.slice(0,10).map(p => <p key={p.id}><strong>{p.paid_at?.slice(0,10)}</strong> · {p.method} · £{Number(p.amount).toFixed(2)}</p>)}</div></div></section>; }
 function NotificationSettings({ form, setForm, onSubmit, onTest }) { return <section className="settingsPanel"><div><p className="eyebrow">Phone alerts</p><h3>New lead push notifications</h3><p>Install the ntfy app on the admin phone, subscribe to the same private topic below, then send a test.</p></div><form onSubmit={onSubmit} className="settingsForm"><label className="toggleRow"><input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} /><span>Enable new-lead notifications</span></label><label>Notification server<input required value={form.server_url} onChange={e => setForm({ ...form, server_url: e.target.value })} placeholder="https://ntfy.sh" /></label><label>Private topic name<input required={form.enabled} value={form.topic} onChange={e => setForm({ ...form, topic: e.target.value })} placeholder="cwc-long-random-private-topic" /></label><label>Access token {form.token_configured && <span className="configuredBadge">Saved</span>}<input type="password" value={form.access_token} onChange={e => setForm({ ...form, access_token: e.target.value, clear_token: false })} placeholder={form.token_configured ? 'Leave blank to keep saved token' : 'Optional for protected topics'} /></label>{form.token_configured && <label className="toggleRow"><input type="checkbox" checked={form.clear_token} onChange={e => setForm({ ...form, clear_token: e.target.checked })} /><span>Remove saved access token</span></label>}<div className="settingsActions"><button>Save settings</button><button type="button" className="small" onClick={onTest}>Send test notification</button></div></form><aside className="settingsHelp"><strong>Phone setup</strong><ol><li>Install the ntfy app from your phone’s app store.</li><li>Subscribe to the exact topic entered above.</li><li>Save these settings, then press Send test notification.</li></ol><p>Use a long, unguessable topic name. Public ntfy.sh topics are accessible to anyone who knows the topic.</p></aside></section>; }
+function DataTools({ downloadBackup, exportCsv }) { return <section className="dataTools"><div><p className="eyebrow">Data safety</p><h3>Backups and exports</h3><p>Download a full JSON backup containing customers, leads, jobs and payments. Notification access tokens are never included.</p></div><div className="settingsActions"><button onClick={downloadBackup}>Download full backup</button><button className="small" onClick={exportCsv}>Export contacts CSV</button></div><p className="backupWarning">Store backups securely because they contain customer contact details.</p></section>; }
 function ContactFilters({ value, onChange }) { return <div className="filterBar" aria-label="Contact filters">{['All', 'Customers', 'Leads', 'Owes money', 'Active'].map(filter => <button key={filter} className={value === filter ? 'active' : 'small'} onClick={() => onChange(filter)}>{filter}</button>)}</div>; }
 function StatusBadge({ value }) { return <span className={`statusBadge status-${String(value || '').toLowerCase().replace(/[^a-z]+/g, '-')}`}>{value}</span>; }
 function ContactList({ contacts, empty = 'No contacts found.' }) { return <div className="tableList">{contacts.length ? contacts.map(c => <article className="row" key={`${c.source}-${c.id}`}><div><strong>{c.name}</strong><span>{c.address} {c.postcode}</span><span>{c.phone} {c.email}</span><span>{c.notes}</span></div><span className="typeBadge">{c.source === 'customer' ? 'Customer' : 'Lead'}</span><StatusBadge value={c.status} /><b>{Number(c.amount_owed) > 0 ? `£${Number(c.amount_owed).toFixed(2)}` : ''}</b></article>) : <p className="emptyState">{empty}</p>}</div>; }

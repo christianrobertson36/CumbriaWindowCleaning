@@ -53,6 +53,9 @@
 .roundJob > b { display: grid; width: 26px; height: 26px; place-content: center; border-radius: 9px; color: #1d6fa6; background: #eef9ff; }
 .roundJob strong, .roundJob span { display: block; }
 .roundJob div > span { color: #617a8d; font-size: 13px; }
+.roundJobEditor { grid-template-columns: 28px minmax(190px,1fr) minmax(130px,.5fr) minmax(100px,.4fr) minmax(120px,.45fr) auto; align-items: end; border: 2px solid #8fd0ef; border-radius: 16px; padding: 14px; background: #f7fcff; }
+.roundJobEditor label { color: #456477; font-size: 12px; font-weight: 900; }
+.roundJobEditor input { margin-top: 4px; }
 .recurringTool { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px; border-radius: 18px; background: #eef9ff; }
 .recurringTool label { display: flex; align-items: center; gap: 10px; font-weight: 800; }
 .recurringTool input { width: auto; }
@@ -82,6 +85,10 @@
 .configuredBadge { display: inline-block; margin-left: 7px; padding: 3px 8px; border-radius: 999px; color: #147548; background: #e5f8ed; font-size: 11px; }
 .settingsHelp { grid-column: 1 / -1; padding: 16px 18px; border-radius: 16px; background: #fff; border: 1px solid #d8edf8; }
 .settingsHelp ol { margin-bottom: 6px; }
+.dataTools { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; margin-top: 20px; padding: 24px; border: 1px solid #cfe8f4; border-radius: 24px; background: #fff; }
+.dataTools h3 { margin: 0 0 8px; font-size: 26px; }
+.dataTools p { margin: 0; color: #607b8d; line-height: 1.55; }
+.backupWarning { grid-column: 1 / -1; padding: 11px 13px; border-radius: 12px; background: #fff6d8; color: #856404 !important; font-size: 13px; font-weight: 800; }
 
 @media (max-width: 900px) {
   .leadRow { grid-template-columns: 1fr; }
@@ -90,6 +97,8 @@
   .settingsPanel { grid-template-columns: 1fr; }
   .plannerGrid { grid-template-columns: 1fr; }
   .roundFilters { grid-template-columns: 1fr 1fr; }
+  .roundJobEditor { grid-template-columns: 28px 1fr 1fr; }
+  .roundJobEditor .compactActions { grid-column: 2 / -1; }
 }
 
 @media (max-width: 560px) {
@@ -101,6 +110,11 @@
   .roundFilters { grid-template-columns: 1fr; }
   .roundJob { grid-template-columns: 28px 1fr; }
   .roundJob > span, .roundJob > .statusBadge, .roundJob > .compactActions { grid-column: 2; }
+  .roundJobEditor { grid-template-columns: 1fr; }
+  .roundJobEditor > * { grid-column: auto !important; }
+  .dataTools { grid-template-columns: 1fr; }
+  .dataTools .settingsActions button { width: 100%; }
+  .backupWarning { grid-column: auto; }
   .csvImport { grid-template-columns: 1fr; }
   .csvActions { justify-content: stretch; }
   .csvActions > * { width: 100%; justify-content: center; text-align: center; }
