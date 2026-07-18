@@ -246,7 +246,13 @@ function App() {
       <section id="services" className="servicesSection">
         <div className="sectionIntro"><p className="eyebrow">What we can help with</p><h2>A cleaner finish, inside and out.</h2><p>Flexible local services for homes and businesses across Cumbria.</p></div>
         <div className="section cards">
-        {[['Domestic window cleaning','Dependable cleaning for homes of every size.'],['Commercial window cleaning','A professional finish for shops, offices and premises.'],['Regular cleaning rounds','Choose a schedule that keeps your windows looking their best.'],['Carpet cleaning','Refresh carpets in homes, offices and commercial premises.'],['Conservatories and extras','Ask about conservatories, fascias and additional cleaning.']].map(([title, copy], index) => <article className="card" key={title}><span className="serviceNumber">0{index + 1}</span><h3>{title}</h3><p>{copy}</p><a href="#quote">Request a quote →</a></article>)}
+        {[
+          ['Domestic window cleaning','Dependable cleaning for homes of every size.','/services/domestic-window-cleaning.png','Professional domestic window cleaning'],
+          ['Commercial window cleaning','A professional finish for shops, offices and premises.','/services/commercial-window-cleaning.png','Clean commercial shopfront windows'],
+          ['Regular cleaning rounds','Choose a schedule that keeps your windows looking their best.','/services/regular-rounds.png','Regular window cleaning rounds in Cumbria'],
+          ['Carpet cleaning','Refresh carpets in homes, offices and commercial premises.','/services/carpet-cleaning.png','Professional carpet cleaning'],
+          ['Conservatories and extras','Ask about conservatories, fascias and additional cleaning.','/services/conservatory-extras.png','Conservatory and exterior cleaning']
+        ].map(([title, copy, image, alt], index) => <article className="card" key={title}><img className="serviceImage" src={image} alt={alt} loading="lazy" /><div className="serviceCardBody"><span className="serviceNumber">0{index + 1}</span><h3>{title}</h3><p>{copy}</p><a href="#quote">Request a quote →</a></div></article>)}
         </div>
       </section>
 

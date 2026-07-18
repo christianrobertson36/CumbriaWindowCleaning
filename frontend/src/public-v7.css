@@ -45,15 +45,18 @@ body { background: #f7fbfd; }
 .sectionIntro { position: relative; max-width: 760px; margin: 0 auto 42px; text-align: center; }
 .sectionIntro h2 { margin: 0 0 14px; color: #163b52; font-size: clamp(36px, 5vw, 56px); letter-spacing: -.04em; line-height: 1.05; }
 .sectionIntro > p:last-child { color: #607b8d; font-size: 18px; }
-.cards { position: relative; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); max-width: 1500px; margin: 0 auto; padding: 0; }
-.card { position: relative; min-height: 235px; padding: 30px; transition: transform .2s ease, box-shadow .2s ease; }
+.cards { position: relative; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 22px; max-width: 1500px; margin: 0 auto; padding: 0; }
+.card { position: relative; min-height: 450px; padding: 0; overflow: hidden; transition: transform .2s ease, box-shadow .2s ease; }
 .card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; border-radius: 30px 0 0 30px; background: linear-gradient(#28a9df, #0875b2); opacity: 0; transition: opacity .2s ease; }
 .card:hover::before { opacity: 1; }
 .card:hover { transform: translateY(-5px); box-shadow: 0 28px 60px rgba(18,75,112,.16); }
+.serviceImage { display: block; width: 100%; height: 210px; object-fit: cover; transition: transform .35s ease; }
+.card:hover .serviceImage { transform: scale(1.035); }
+.serviceCardBody { display: flex; min-height: 240px; padding: 25px 27px 28px; flex-direction: column; align-items: flex-start; }
 .serviceNumber { color: #8fcce9; font-size: 13px; font-weight: 900; letter-spacing: .12em; }
-.card h3 { margin: 24px 0 12px; font-size: 22px; }
-.card p { color: #607b8d; line-height: 1.6; }
-.card a { display: inline-block; margin-top: 12px; font-size: 14px; }
+.card h3 { margin: 14px 0 10px; font-size: 22px; }
+.card p { margin: 0; color: #607b8d; line-height: 1.6; }
+.card a { display: inline-block; margin-top: auto; padding-top: 18px; font-size: 14px; }
 
 .quoteSection { position: relative; padding: 90px max(5vw, 20px) 110px; overflow: hidden; background: radial-gradient(circle at 15% 20%, rgba(47,169,219,.2), transparent 25%), radial-gradient(circle at 90% 85%, rgba(47,169,219,.15), transparent 24%), linear-gradient(135deg,#eaf8fd,#f9fdff 55%,#e4f5fc); }
 .quoteSection::before,.quoteSection::after { content: ''; position: absolute; border-radius: 50%; border: 1px solid rgba(29,139,201,.14); }
@@ -80,6 +83,10 @@ body { background: #f7fbfd; }
   .cards { grid-template-columns: 1fr 1fr; }
 }
 
+@media (max-width: 1250px) and (min-width: 901px) {
+  .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 @media (max-width: 600px) {
   .topbar:not(.adminTopbar) { min-height: 68px; padding: 6px 14px; gap: 8px; }
   .topbar:not(.adminTopbar) .bucket { width: 112px; height: 54px; }
@@ -93,8 +100,9 @@ body { background: #f7fbfd; }
   .heroActions .button { width: 100%; text-align: center; }
   .trustRow { display: grid; }
   .heroCard { padding: 28px; }
-  .cards { grid-template-columns: 1fr; padding: 50px 20px; }
+  .cards { grid-template-columns: 1fr; padding: 0; }
   .card { min-height: 0; }
+  .serviceImage { height: 230px; }
   .quoteSection { padding: 12px 14px 70px; }
   .quoteSection .quotePanel { padding: 28px 18px; border-radius: 26px; }
   .quoteForm { grid-template-columns: 1fr; }
