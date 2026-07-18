@@ -319,6 +319,27 @@ app.patch('/admin/customers/:id', auth, async (req, res) => {
   res.json({ ok: true, customer: result.rows[0] });
 });
 
+app.get('/admin/reports', auth, async (_req, res) => {
+  const [months, totals, leadSources] = await Promise.all([
+    pool.query(`WITH months AS (SELECT generate_series(date_trunc('month',CURRENT_DATE)-interval '11 months',date_trunc('month',CURRENT_DATE),interval '1 month')::date AS month)
+      SELECT to_char(m.month,'YYYY-MM') AS month,to_char(m.month,'Mon YY') AS label,
+      COALESCE((SELECT SUM(p.amount) FROM payments p WHERE date_trunc('month',p.paid_at)=m.month),0)::float AS revenue,
+      COALESCE((SELECT COUNT(*) FROM jobs j WHERE date_trunc('month',j.job_date)=m.month AND j.status='Done'),0)::int AS completed_jobs,
+      COALESCE((SELECT SUM(j.price) FROM jobs j WHERE date_trunc('month',j.job_date)=m.month AND j.status='Done'),0)::float AS completed_value
+      FROM months m ORDER BY m.month`),
+    pool.query(`SELECT
+      (SELECT COUNT(*)::int FROM customers WHERE status='Active') AS active_customers,
+      (SELECT COALESCE(SUM(amount_owed),0)::float FROM customers) AS outstanding,
+      (SELECT COUNT(*)::int FROM leads) AS total_leads,
+      (SELECT COUNT(*)::int FROM leads WHERE status IN ('Won','Existing customer')) AS won_leads,
+      (SELECT COALESCE(SUM(amount),0)::float FROM payments WHERE paid_at>=CURRENT_DATE-interval '30 days') AS revenue_30_days`),
+    pool.query(`SELECT COALESCE(NULLIF(service,''),'Not specified') AS service,COUNT(*)::int AS count FROM leads GROUP BY 1 ORDER BY count DESC,service LIMIT 8`)
+  ]);
+  const summary = totals.rows[0];
+  summary.conversion_rate = summary.total_leads ? Math.round((summary.won_leads / summary.total_leads) * 1000) / 10 : 0;
+  res.json({ ok: true, months: months.rows, summary, lead_services: leadSources.rows });
+});
+
 app.post('/admin/customers/import', auth, async (req, res) => {
   const customers = Array.isArray(req.body?.customers) ? req.body.customers : [];
   if (!customers.length) return res.status(400).json({ ok: false, error: 'The CSV does not contain any customer rows' });

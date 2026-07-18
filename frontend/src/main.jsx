@@ -21,6 +21,7 @@ function App() {
   const [leads, setLeads] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [reports, setReports] = useState(null);
   const [customerHistory, setCustomerHistory] = useState(null);
   const [customerForm, setCustomerForm] = useState(blankCustomer);
   const [jobForm, setJobForm] = useState({ customer_id: '', job_date: today, status: 'Planned', notes: '' });
@@ -55,14 +56,15 @@ function App() {
   async function loadAdmin() {
     if (!token) return;
     try {
-      const [s, c, j, l, contactData, paymentData, notificationData] = await Promise.all([
+      const [s, c, j, l, contactData, paymentData, notificationData, reportData] = await Promise.all([
         api('/admin/summary', { headers }),
         api('/admin/customers', { headers }),
         api('/admin/jobs', { headers }),
         api('/admin/leads', { headers }),
         api('/admin/contacts', { headers }),
         api('/admin/payments', { headers }),
-        api('/admin/settings/notifications', { headers })
+        api('/admin/settings/notifications', { headers }),
+        api('/admin/reports', { headers })
       ]);
       setSummary(s.summary);
       setCustomers(c.customers);
@@ -70,6 +72,7 @@ function App() {
       setLeads(l.leads);
       setContacts(contactData.contacts);
       setPayments(paymentData.payments);
+      setReports(reportData);
       setNotificationForm(current => ({ ...current, ...notificationData.settings, access_token: '', clear_token: false }));
     } catch (e) {
       setError(e.message);
@@ -286,7 +289,7 @@ function App() {
           <ul><li>Domestic properties</li><li>Commercial premises</li><li>Regular cleaning rounds</li><li>One-off cleans and extras</li></ul>
           <a href="#quote">Check availability <span>→</span></a>
         </div>
-        <img className="heroVan" src="/van-branded.png" alt="Cumbria Window Cleaning van" />
+        <img className="heroVan" src="/ford-transit-branded.png" alt="Cumbria Window Cleaning Ford Transit van" />
       </section>
 
       <section id="services" className="servicesSection">
@@ -364,7 +367,7 @@ function App() {
         {!token ? <form className="login" onSubmit={doLogin}><input value={login.email} onChange={e => setLogin({ ...login, email: e.target.value })} /><input type="password" placeholder="Password" value={login.password} onChange={e => setLogin({ ...login, password: e.target.value })} /><button className="button">Login</button></form> : <>
           <div className="adminSearch"><input type="search" aria-label="Search all customers, contacts and leads" placeholder="Search customers, contacts and leads..." value={search} onChange={e => setSearch(e.target.value)} />{search && <button className="small" onClick={() => setSearch('')}>Clear</button>}</div>
           <div className="adminTools"><button className="small" onClick={exportCsv}>Export contacts CSV</button></div>
-          <div className="tabs">{['dashboard','today','customers','planner','payments','leads','contacts','settings'].map(t => <button className={tab === t ? 'active' : ''} onClick={() => setTab(t)} key={t}>{t}</button>)}</div>
+          <div className="tabs">{['dashboard','today','customers','planner','payments','leads','contacts','reports','settings'].map(t => <button className={tab === t ? 'active' : ''} onClick={() => setTab(t)} key={t}>{t}</button>)}</div>
           {search ? <section className="searchResults"><div className="listHeading"><h3>Search results</h3><span>{searchResults.length} found</span></div><ContactList contacts={searchResults} empty="No matching customers, contacts or leads." /></section> : <>
           {tab === 'dashboard' && <div className="stats">
             <Stat title="Active customers" value={summary?.active_customers ?? 0} />
@@ -380,6 +383,7 @@ function App() {
           {tab === 'planner' && <PlannerWorkspace jobs={jobs} customers={customers} jobForm={jobForm} setJobForm={setJobForm} addJob={addJob} updateJob={updateJob} selectedDate={plannerDate} setSelectedDate={setPlannerDate} throughDate={throughDate} setThroughDate={setThroughDate} generateRecurring={generateRecurring} sendScheduleNotification={sendScheduleNotification} />}
           {tab === 'payments' && <><PaymentForm form={paymentForm} setForm={setPaymentForm} customers={customers} onSubmit={addPayment} /><PaymentList payments={payments} /><h3>Outstanding balances</h3><MoneyList customers={customers} saveCustomer={saveCustomer} openCustomer={openCustomer} /></>}
           {tab === 'leads' && <><LeadFilters value={leadFilter} onChange={setLeadFilter} /><LeadList leads={filterLeads(leads, leadFilter)} updateLeadStatus={updateLeadStatus} saveLead={saveLead} convertLead={convertLead} leadMatch={leadMatch} /></>}
+          {tab === 'reports' && <Reports data={reports} />}
           {tab === 'settings' && <><NotificationSettings form={notificationForm} setForm={setNotificationForm} onSubmit={saveNotificationSettings} onTest={testNotification} onRunReminders={runReminders} /><DataTools downloadBackup={downloadBackup} exportCsv={exportCsv} /></>}
           </>}
         </>}
@@ -490,6 +494,12 @@ function LeadFilters({ value, onChange }) { return <div className="filterBar">{[
 function PaymentForm({ form, setForm, customers, onSubmit }) { return <form className="paymentForm" onSubmit={onSubmit}><h3>Record payment</h3><select required value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}><option value="">Choose customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name} · owes £{Number(c.amount_owed).toFixed(2)}</option>)}</select><input required min="0.01" step="0.01" type="number" placeholder="Amount" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /><select value={form.method} onChange={e => setForm({ ...form, method: e.target.value })}><option>Bank transfer</option><option>Cash</option><option>Card</option><option>Other</option></select><input type="date" value={form.paid_at} onChange={e => setForm({ ...form, paid_at: e.target.value })} /><input placeholder="Payment notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /><button>Record payment</button></form>; }
 function PaymentList({ payments }) { return <div className="tableList">{payments.length ? payments.map(p => <article className="row" key={p.id}><div><strong>{p.customer_name}</strong><span>{p.paid_at?.slice(0,10)} · {p.method}</span><span>{p.notes}</span></div><b className="paidAmount">+£{Number(p.amount).toFixed(2)}</b></article>) : <p className="emptyState">No payments recorded yet.</p>}</div>; }
 function CustomerHistory({ data, close, setPayment, goPayments }) { const { customer, jobs, payments } = data; return <section className="historyPanel"><div className="listHeading"><div><p className="eyebrow">Customer record</p><h3>{customer.name}</h3></div><button className="small" onClick={close}>Close</button></div><div className="historySummary"><span>Balance <strong>£{Number(customer.amount_owed).toFixed(2)}</strong></span><span>Jobs <strong>{jobs.length}</strong></span><span>Payments <strong>{payments.length}</strong></span></div><div className="contactActions">{customer.phone && <a className="actionLink" href={`tel:${customer.phone}`}>Call</a>}{customer.email && <a className="actionLink" href={`mailto:${customer.email}`}>Email</a>}<button onClick={() => { setPayment(form => ({ ...form, customer_id: customer.id, amount: customer.amount_owed || '' })); goPayments(); }}>Record payment</button></div><div className="historyColumns"><div><h4>Job history</h4>{jobs.slice(0,10).map(j => <p key={j.id}><strong>{j.job_date?.slice(0,10)}</strong> · {j.status} · £{Number(j.price).toFixed(2)}</p>)}</div><div><h4>Payment history</h4>{payments.slice(0,10).map(p => <p key={p.id}><strong>{p.paid_at?.slice(0,10)}</strong> · {p.method} · £{Number(p.amount).toFixed(2)}</p>)}</div></div></section>; }
+function Reports({ data }) {
+  if (!data) return <p className="emptyState">Loading reports...</p>;
+  const maxRevenue = Math.max(1, ...data.months.map(month => Number(month.revenue)));
+  const maxService = Math.max(1, ...data.lead_services.map(service => Number(service.count)));
+  return <section className="reportsPage"><div className="reportStats"><Stat title="Revenue · 30 days" value={`£${Number(data.summary.revenue_30_days).toFixed(2)}`} /><Stat title="Active customers" value={data.summary.active_customers} /><Stat title="Lead conversion" value={`${data.summary.conversion_rate}%`} /><Stat title="Outstanding" value={`£${Number(data.summary.outstanding).toFixed(2)}`} /></div><div className="reportGrid"><article className="reportCard revenueReport"><div className="listHeading"><div><p className="eyebrow">Cash received</p><h3>Revenue by month</h3></div><span>Last 12 months</span></div><div className="revenueChart">{data.months.map(month => <div className="revenueColumn" key={month.month}><span>£{Math.round(Number(month.revenue))}</span><i style={{ height: `${Math.max(3, (Number(month.revenue) / maxRevenue) * 100)}%` }}></i><b>{month.label}</b></div>)}</div></article><article className="reportCard"><p className="eyebrow">Work completed</p><h3>Monthly job totals</h3><div className="metricList">{data.months.slice(-6).reverse().map(month => <div key={month.month}><span>{month.label}</span><strong>{month.completed_jobs} jobs</strong><b>£{Number(month.completed_value).toFixed(2)}</b></div>)}</div></article><article className="reportCard serviceReport"><p className="eyebrow">Lead demand</p><h3>Enquiries by service</h3>{data.lead_services.length ? data.lead_services.map(service => <div className="serviceMetric" key={service.service}><div><span>{service.service}</span><b>{service.count}</b></div><i><em style={{ width: `${(Number(service.count) / maxService) * 100}%` }}></em></i></div>) : <p className="emptyState">No lead data yet.</p>}</article></div></section>;
+}
 function NotificationSettings({ form, setForm, onSubmit, onTest, onRunReminders }) { return <section className="settingsPanel"><div><p className="eyebrow">Phone alerts</p><h3>Push notifications and reminders</h3><p>Receive new quote requests immediately, plus optional daily reminders for follow-ups and tomorrow’s work.</p></div><form onSubmit={onSubmit} className="settingsForm"><label className="toggleRow"><input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} /><span>Enable phone notifications</span></label><label>Notification server<input required value={form.server_url} onChange={e => setForm({ ...form, server_url: e.target.value })} placeholder="https://ntfy.sh" /></label><label>Private topic name<input required={form.enabled} value={form.topic} onChange={e => setForm({ ...form, topic: e.target.value })} placeholder="cwc-long-random-private-topic" /></label><label>Access token {form.token_configured && <span className="configuredBadge">Saved</span>}<input type="password" value={form.access_token} onChange={e => setForm({ ...form, access_token: e.target.value, clear_token: false })} placeholder={form.token_configured ? 'Leave blank to keep saved token' : 'Optional for protected topics'} /></label>{form.token_configured && <label className="toggleRow"><input type="checkbox" checked={form.clear_token} onChange={e => setForm({ ...form, clear_token: e.target.checked })} /><span>Remove saved access token</span></label>}<div className="reminderOptions"><strong>Automatic daily reminders</strong><label className="toggleRow"><input type="checkbox" checked={form.followup_reminders} onChange={e => setForm({ ...form, followup_reminders: e.target.checked })} /><span>Lead follow-ups that are due</span></label><label className="toggleRow"><input type="checkbox" checked={form.schedule_reminders} onChange={e => setForm({ ...form, schedule_reminders: e.target.checked })} /><span>Tomorrow’s cleaning schedule</span></label><label>Send after this hour (UK time)<select value={form.reminder_hour} onChange={e => setForm({ ...form, reminder_hour: Number(e.target.value) })}>{[...Array(24)].map((_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2,'0')}:00</option>)}</select></label></div><div className="settingsActions"><button>Save settings</button><button type="button" className="small" onClick={onTest}>Send test</button><button type="button" className="small" onClick={onRunReminders}>Run reminders now</button></div></form><aside className="settingsHelp"><strong>Phone setup</strong><ol><li>Install the ntfy app from your phone’s app store.</li><li>Subscribe to the exact topic entered above.</li><li>Save these settings, then press Send test.</li></ol><p>Each automatic reminder runs at most once per UK calendar day, including after the API restarts.</p></aside></section>; }
 function DataTools({ downloadBackup, exportCsv }) { return <section className="dataTools"><div><p className="eyebrow">Data safety</p><h3>Backups and exports</h3><p>Download a full JSON backup containing customers, leads, jobs and payments. Notification access tokens are never included.</p></div><div className="settingsActions"><button onClick={downloadBackup}>Download full backup</button><button className="small" onClick={exportCsv}>Export contacts CSV</button></div><p className="backupWarning">Store backups securely because they contain customer contact details.</p></section>; }
 function ContactFilters({ value, onChange }) { return <div className="filterBar" aria-label="Contact filters">{['All', 'Customers', 'Leads', 'Owes money', 'Active'].map(filter => <button key={filter} className={value === filter ? 'active' : 'small'} onClick={() => onChange(filter)}>{filter}</button>)}</div>; }
