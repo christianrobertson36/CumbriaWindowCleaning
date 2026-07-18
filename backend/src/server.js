@@ -359,8 +359,23 @@ app.get('/admin/contacts', auth, async (_req, res) => {
 });
 
 app.get('/admin/jobs', auth, async (_req, res) => {
-  const result = await pool.query('SELECT * FROM jobs ORDER BY job_date ASC, id ASC');
+  const result = await pool.query(`SELECT j.*,c.area,c.postcode,c.phone FROM jobs j LEFT JOIN customers c ON c.id=j.customer_id ORDER BY j.job_date ASC,j.id ASC`);
   res.json({ ok: true, jobs: result.rows });
+});
+
+app.post('/admin/jobs/schedule-notification', auth, async (req, res) => {
+  const date = cleanText(req.body?.date) || new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ ok: false, error: 'Enter a valid schedule date' });
+  const result = await pool.query(`SELECT j.customer_name,j.address,j.price,c.area FROM jobs j LEFT JOIN customers c ON c.id=j.customer_id WHERE j.job_date=$1 AND j.status NOT IN ('Cancelled','Skipped') ORDER BY COALESCE(c.area,''),j.id`, [date]);
+  const jobs = result.rows;
+  if (!jobs.length) return res.status(400).json({ ok: false, error: `No planned jobs found for ${date}` });
+  const total = jobs.reduce((sum, job) => sum + money(job.price), 0);
+  const preview = jobs.slice(0, 8).map(job => `${job.customer_name}${job.area ? ` (${job.area})` : ''}`).join(', ');
+  try {
+    const notification = await publishNotification({ title: `Cleaning round: ${date}`, message: `${jobs.length} jobs · £${total.toFixed(2)} · ${preview}${jobs.length > 8 ? ` +${jobs.length - 8} more` : ''}` });
+    if (!notification.sent) return res.status(400).json({ ok: false, error: 'Enable phone notifications in Settings first' });
+    res.json({ ok: true, message: `Schedule notification sent for ${jobs.length} jobs.` });
+  } catch (error) { res.status(502).json({ ok: false, error: error.message }); }
 });
 
 app.post('/admin/jobs', auth, async (req, res) => {

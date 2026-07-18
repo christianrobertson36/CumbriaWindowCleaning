@@ -31,6 +31,7 @@ function App() {
   const [leadFilter, setLeadFilter] = useState('Open');
   const [paymentForm, setPaymentForm] = useState({ customer_id: '', amount: '', method: 'Bank transfer', paid_at: today, notes: '' });
   const [throughDate, setThroughDate] = useState(new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
+  const [plannerDate, setPlannerDate] = useState(today);
   const [notificationForm, setNotificationForm] = useState({ enabled: false, server_url: 'https://ntfy.sh', topic: '', access_token: '', token_configured: false, clear_token: false });
 
   const headers = useMemo(() => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }), [token]);
@@ -185,6 +186,14 @@ function App() {
       const result = await api('/admin/jobs/generate-recurring', { method: 'POST', headers, body: JSON.stringify({ through_date: throughDate }) });
       setNotice(`${result.created} recurring job${result.created === 1 ? '' : 's'} created.`);
       await loadAdmin();
+    } catch (e) { setError(e.message); }
+  }
+
+  async function sendScheduleNotification(date) {
+    setError(''); setNotice('');
+    try {
+      const result = await api('/admin/jobs/schedule-notification', { method: 'POST', headers, body: JSON.stringify({ date }) });
+      setNotice(result.message);
     } catch (e) { setError(e.message); }
   }
 
@@ -343,7 +352,7 @@ function App() {
           {tab === 'today' && <><div className="listHeading"><h3>Today's round</h3><span>{jobs.filter(j => j.job_date?.slice(0,10) === today).length} jobs</span></div><JobList jobs={jobs.filter(j => j.job_date?.slice(0,10) === today)} updateJob={updateJob} empty="No jobs planned for today." /></>}
           {tab === 'contacts' && <><CustomerImport onImport={importCustomers} /><CustomerForm form={customerForm} setForm={setCustomerForm} onSubmit={addCustomer} /><ContactFilters value={contactFilter} onChange={setContactFilter} /><ContactList contacts={filterContacts(contacts, contactFilter)} empty="No contacts match this filter." /></>}
           {tab === 'customers' && <>{customerHistory && <CustomerHistory data={customerHistory} close={() => setCustomerHistory(null)} setPayment={setPaymentForm} goPayments={() => setTab('payments')} />}<CustomerForm form={customerForm} setForm={setCustomerForm} onSubmit={addCustomer} /><CustomerList customers={customers} saveCustomer={saveCustomer} openCustomer={openCustomer} /></>}
-          {tab === 'planner' && <><div className="plannerTools"><form className="inlineForm" onSubmit={addJob}><select value={jobForm.customer_id} onChange={e => setJobForm({ ...jobForm, customer_id: e.target.value })}><option value="">Choose customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select><input type="date" value={jobForm.job_date} onChange={e => setJobForm({ ...jobForm, job_date: e.target.value })} /><input placeholder="Notes" value={jobForm.notes} onChange={e => setJobForm({ ...jobForm, notes: e.target.value })} /><button>Add job</button></form><div className="recurringTool"><label>Generate recurring jobs through <input type="date" value={throughDate} onChange={e => setThroughDate(e.target.value)} /></label><button onClick={generateRecurring}>Generate</button></div></div><JobList jobs={jobs} updateJob={updateJob} /></>}
+          {tab === 'planner' && <PlannerWorkspace jobs={jobs} customers={customers} jobForm={jobForm} setJobForm={setJobForm} addJob={addJob} updateJob={updateJob} selectedDate={plannerDate} setSelectedDate={setPlannerDate} throughDate={throughDate} setThroughDate={setThroughDate} generateRecurring={generateRecurring} sendScheduleNotification={sendScheduleNotification} />}
           {tab === 'payments' && <><PaymentForm form={paymentForm} setForm={setPaymentForm} customers={customers} onSubmit={addPayment} /><PaymentList payments={payments} /><h3>Outstanding balances</h3><MoneyList customers={customers} saveCustomer={saveCustomer} openCustomer={openCustomer} /></>}
           {tab === 'leads' && <><LeadFilters value={leadFilter} onChange={setLeadFilter} /><LeadList leads={filterLeads(leads, leadFilter)} updateLeadStatus={updateLeadStatus} saveLead={saveLead} convertLead={convertLead} leadMatch={leadMatch} /></>}
           {tab === 'settings' && <NotificationSettings form={notificationForm} setForm={setNotificationForm} onSubmit={saveNotificationSettings} onTest={testNotification} />}
@@ -411,6 +420,35 @@ function CustomerRow({ c, saveCustomer, openCustomer }) {
   useEffect(() => setEdit(c), [c]);
   if (editing) return <article className="customerEditor"><div className="formGrid"><Field form={edit} setForm={setEdit} name="name" placeholder="Name" /><Field form={edit} setForm={setEdit} name="phone" placeholder="Phone" /><Field form={edit} setForm={setEdit} name="email" placeholder="Email" /><Field form={edit} setForm={setEdit} name="address" placeholder="Address" /><Field form={edit} setForm={setEdit} name="postcode" placeholder="Postcode" /><Field form={edit} setForm={setEdit} name="area" placeholder="Round / area" /><Field form={edit} setForm={setEdit} name="clean_price" placeholder="Clean price" type="number" /><Field form={edit} setForm={setEdit} name="frequency" placeholder="Frequency" /><Field form={edit} setForm={setEdit} name="next_clean_date" placeholder="Next clean" type="date" /><Field form={edit} setForm={setEdit} name="amount_owed" placeholder="Amount owed" type="number" /><Field form={edit} setForm={setEdit} name="access_notes" placeholder="Access notes" /><Field form={edit} setForm={setEdit} name="notes" placeholder="Notes" /><select aria-label="Customer status" value={edit.status || 'Active'} onChange={e => setEdit({ ...edit, status: e.target.value })}><option>Active</option><option>Paused</option><option>Inactive</option></select></div><div className="editorActions"><button onClick={async () => { if (await saveCustomer(edit)) setEditing(false); }}>Save customer</button><button className="small" onClick={() => { setEdit(c); setEditing(false); }}>Cancel</button></div></article>;
   return <article className="row"><div><strong>{c.name}</strong><span>{c.address} {c.postcode}</span><span>{c.phone} {c.email}</span><span>{c.area && `${c.area} · `}{c.frequency}{c.next_clean_date && ` · Next ${c.next_clean_date.slice(0,10)}`}</span>{c.notes && <span>{c.notes}</span>}</div><StatusBadge value={c.status} /><b>{Number(c.amount_owed) > 0 ? `£${Number(c.amount_owed).toFixed(2)}` : ''}</b><div className="compactActions"><button onClick={() => openCustomer?.(c.id)}>History</button><button className="small" onClick={() => setEditing(true)}>Edit</button></div></article>;
+}
+function PlannerWorkspace({ jobs, customers, jobForm, setJobForm, addJob, updateJob, selectedDate, setSelectedDate, throughDate, setThroughDate, generateRecurring, sendScheduleNotification }) {
+  const [month, setMonth] = useState(selectedDate.slice(0, 7));
+  const [query, setQuery] = useState('');
+  const [area, setArea] = useState('All areas');
+  const dayJobs = jobs.filter(job => job.job_date?.slice(0, 10) === selectedDate);
+  const areas = [...new Set(jobs.map(job => job.area).filter(Boolean))].sort();
+  const filtered = dayJobs.filter(job => (area === 'All areas' || job.area === area) && [job.customer_name, job.address, job.postcode, job.phone, job.notes, job.area].some(value => String(value || '').toLowerCase().includes(query.toLowerCase())));
+  function changeMonth(offset) {
+    const cursor = new Date(`${month}-01T12:00:00`); cursor.setMonth(cursor.getMonth() + offset);
+    setMonth(cursor.toISOString().slice(0, 7));
+  }
+  function chooseDate(date) { setSelectedDate(date); setJobForm(current => ({ ...current, job_date: date })); }
+  return <section className="plannerWorkspace">
+    <div className="plannerTools"><form className="inlineForm" onSubmit={addJob}><select required value={jobForm.customer_id} onChange={e => setJobForm({ ...jobForm, customer_id: e.target.value })}><option value="">Choose customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}{c.area ? ` · ${c.area}` : ''}</option>)}</select><input type="date" value={jobForm.job_date} onChange={e => { setJobForm({ ...jobForm, job_date: e.target.value }); setSelectedDate(e.target.value); }} /><input placeholder="Job notes" value={jobForm.notes} onChange={e => setJobForm({ ...jobForm, notes: e.target.value })} /><button>Add job</button></form><div className="recurringTool"><label>Generate recurring jobs through <input type="date" value={throughDate} onChange={e => setThroughDate(e.target.value)} /></label><button onClick={generateRecurring}>Generate</button></div></div>
+    <div className="plannerGrid"><MonthCalendar month={month} jobs={jobs} selectedDate={selectedDate} chooseDate={chooseDate} previous={() => changeMonth(-1)} next={() => changeMonth(1)} /><div className="roundPanel"><div className="roundHeading"><div><p className="eyebrow">Daily round</p><h3>{new Date(`${selectedDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h3></div><span>{filtered.length} jobs · £{filtered.reduce((sum, job) => sum + Number(job.price || 0), 0).toFixed(2)}</span></div><div className="roundFilters"><input type="search" placeholder="Search this round..." value={query} onChange={e => setQuery(e.target.value)} /><select value={area} onChange={e => setArea(e.target.value)}><option>All areas</option>{areas.map(value => <option key={value}>{value}</option>)}</select><button className="small" onClick={() => window.print()}>Print work sheet</button><button className="small" onClick={() => sendScheduleNotification(selectedDate)}>Send to phone</button></div><RoundSheet jobs={filtered} updateJob={updateJob} date={selectedDate} /></div></div>
+  </section>;
+}
+function MonthCalendar({ month, jobs, selectedDate, chooseDate, previous, next }) {
+  const first = new Date(`${month}-01T12:00:00`);
+  const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const offset = (first.getDay() + 6) % 7;
+  const cells = [...Array(offset).fill(null), ...Array.from({ length: days }, (_, index) => `${month}-${String(index + 1).padStart(2, '0')}`)];
+  return <aside className="monthCalendar"><div className="calendarHeading"><button className="small" onClick={previous}>←</button><strong>{first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</strong><button className="small" onClick={next}>→</button></div><div className="weekdays">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day => <span key={day}>{day}</span>)}</div><div className="calendarDays">{cells.map((date, index) => date ? <button key={date} className={`${date === selectedDate ? 'selected' : ''} ${date === today ? 'today' : ''}`} onClick={() => chooseDate(date)}><span>{Number(date.slice(-2))}</span>{jobs.some(job => job.job_date?.slice(0,10) === date) && <b>{jobs.filter(job => job.job_date?.slice(0,10) === date).length}</b>}</button> : <i key={`blank-${index}`}></i>)}</div></aside>;
+}
+function RoundSheet({ jobs, updateJob, date }) {
+  const groups = Object.groupBy ? Object.groupBy(jobs, job => job.area || 'Unassigned area') : jobs.reduce((all, job) => ({ ...all, [job.area || 'Unassigned area']: [...(all[job.area || 'Unassigned area'] || []), job] }), {});
+  if (!jobs.length) return <p className="emptyState">No jobs match this date and filter.</p>;
+  return <div className="dailySheet"><div className="printHeading"><h2>Cumbria Window Cleaning</h2><p>Work sheet · {date}</p></div>{Object.entries(groups).map(([group, groupJobs]) => <section className="areaGroup" key={group}><h4>{group}<span>{groupJobs.length} jobs</span></h4>{groupJobs.map((job, index) => <article className="roundJob" key={job.id}><b>{index + 1}</b><div><strong>{job.customer_name}</strong><span>{job.address} {job.postcode}</span><span>{job.phone}{job.notes ? ` · ${job.notes}` : ''}</span></div><span>£{Number(job.price || 0).toFixed(2)}</span><StatusBadge value={job.status} /><div className="compactActions"><button onClick={() => updateJob(job, 'Done')}>Done</button><button className="small" onClick={() => updateJob(job, 'Skipped')}>Skip</button></div></article>)}</section>)}</div>;
 }
 function JobList({ jobs, updateJob, empty = 'No jobs found.' }) { return <div className="tableList">{jobs.length ? jobs.map(j => <article className="row" key={j.id}><div><strong>{j.job_date?.slice(0,10)} · {j.customer_name}</strong><span>{j.address}</span><span>{j.notes}</span></div><StatusBadge value={j.status} /><b>£{Number(j.price || 0).toFixed(2)}</b><div className="compactActions"><button onClick={() => updateJob(j, 'Done')}>Done</button><button className="small" onClick={() => updateJob(j, 'Skipped')}>Skip</button></div></article>) : <p className="emptyState">{empty}</p>}</div>; }
 function MoneyList({ customers, saveCustomer, openCustomer }) { return <div className="tableList">{customers.filter(c => Number(c.amount_owed) > 0).map(c => <CustomerRow key={c.id} c={c} saveCustomer={saveCustomer} openCustomer={openCustomer} />)}</div>; }

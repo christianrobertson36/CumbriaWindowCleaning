@@ -30,6 +30,29 @@
 .fileButton input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .csvFile { grid-column: 1 / -1; color: #1d6fa6; font-size: 13px; font-weight: 800; }
 .plannerTools { display: grid; gap: 14px; }
+.plannerGrid { display: grid; grid-template-columns: minmax(300px,.6fr) minmax(520px,1.4fr); gap: 20px; margin-top: 20px; align-items: start; }
+.monthCalendar, .roundPanel { padding: 20px; border: 1px solid #d5eaf5; border-radius: 24px; background: #fff; box-shadow: 0 14px 34px rgba(18,75,112,.08); }
+.calendarHeading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+.calendarHeading strong { color: #163b52; font-size: 19px; }
+.weekdays, .calendarDays { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; }
+.weekdays span { padding: 5px 0; color: #7890a0; text-align: center; font-size: 11px; font-weight: 900; }
+.calendarDays > i, .calendarDays > button { min-height: 49px; border: 0; border-radius: 13px; box-shadow: none; }
+.calendarDays > button { display: grid; padding: 6px; place-content: center; color: #365b70; background: #f3f9fc; }
+.calendarDays > button:hover, .calendarDays > button.today { background: #def3fc; }
+.calendarDays > button.selected { color: #fff; background: #168fce; }
+.calendarDays button b { font-size: 10px; }
+.roundHeading { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+.roundHeading h3 { margin: 0; color: #163b52; font-size: 25px; }
+.roundHeading > span { color: #1d6fa6; font-weight: 900; white-space: nowrap; }
+.roundFilters { display: grid; grid-template-columns: 1fr .7fr auto auto; gap: 8px; margin: 18px 0; }
+.printHeading { display: none; }
+.areaGroup { margin-top: 16px; }
+.areaGroup h4 { display: flex; justify-content: space-between; margin: 0; padding: 10px 12px; border-radius: 12px; color: #1d6fa6; background: #eaf8ff; }
+.areaGroup h4 span { color: #607b8d; font-size: 12px; }
+.roundJob { display: grid; grid-template-columns: 28px minmax(220px,1fr) auto auto auto; gap: 10px; align-items: center; padding: 13px 8px; border-bottom: 1px solid #e1edf3; }
+.roundJob > b { display: grid; width: 26px; height: 26px; place-content: center; border-radius: 9px; color: #1d6fa6; background: #eef9ff; }
+.roundJob strong, .roundJob span { display: block; }
+.roundJob div > span { color: #617a8d; font-size: 13px; }
 .recurringTool { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px; border-radius: 18px; background: #eef9ff; }
 .recurringTool label { display: flex; align-items: center; gap: 10px; font-weight: 800; }
 .recurringTool input { width: auto; }
@@ -65,6 +88,8 @@
   .leadRow .rowActions { grid-column: auto; }
   .paymentForm, .historyColumns { grid-template-columns: 1fr 1fr; }
   .settingsPanel { grid-template-columns: 1fr; }
+  .plannerGrid { grid-template-columns: 1fr; }
+  .roundFilters { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 560px) {
@@ -73,7 +98,23 @@
   .rowActions button, .editorActions button { width: 100%; }
   .paymentForm, .historyColumns { grid-template-columns: 1fr; }
   .paymentForm h3 { grid-column: auto; }
+  .roundFilters { grid-template-columns: 1fr; }
+  .roundJob { grid-template-columns: 28px 1fr; }
+  .roundJob > span, .roundJob > .statusBadge, .roundJob > .compactActions { grid-column: 2; }
   .csvImport { grid-template-columns: 1fr; }
   .csvActions { justify-content: stretch; }
   .csvActions > * { width: 100%; justify-content: center; text-align: center; }
+}
+
+@media print {
+  body * { visibility: hidden !important; }
+  .dailySheet, .dailySheet * { visibility: visible !important; }
+  .dailySheet { position: absolute; inset: 0; width: 100%; color: #111; background: #fff; }
+  .printHeading { display: block; margin-bottom: 18px; }
+  .printHeading h2, .printHeading p { margin: 0 0 5px; }
+  .areaGroup { break-inside: avoid; }
+  .areaGroup h4 { color: #111; background: #eee; }
+  .roundJob { grid-template-columns: 28px 1fr auto auto; }
+  .roundJob .compactActions { display: none; }
+  .statusBadge { border: 1px solid #aaa; color: #111 !important; background: #fff; }
 }
